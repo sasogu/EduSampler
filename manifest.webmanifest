@@ -1,6 +1,6 @@
 {
-  "name": "EduBox",
-  "short_name": "EduBox",
+  "name": "EduSampler",
+  "short_name": "EduSampler",
   "start_url": ".",
   "display": "standalone",
   "background_color": "#0b2622",

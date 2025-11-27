@@ -188,7 +188,7 @@ header {
   margin-top: 28px;
   display: grid;
   gap: 14px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .card {
@@ -199,12 +199,20 @@ header {
   box-shadow: 0 10px 28px rgba(0, 0, 0, 0.18);
   display: grid;
   gap: 10px;
+  overflow: hidden;
+  word-break: break-word;
 }
 
 .card-header {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+}
+
+.card-header > div:last-child {
+  flex: 1;
+  min-width: 0;
 }
 
 .avatar {
@@ -219,6 +227,8 @@ header {
 
 .name {
   font-weight: 700;
+  line-height: 1.2;
+  word-break: break-word;
 }
 
 .tags {
@@ -239,6 +249,7 @@ header {
   display: flex;
   gap: 8px;
   align-items: center;
+  flex-wrap: wrap;
 }
 
 .toggle {
@@ -280,10 +291,16 @@ header {
   padding: 10px 12px;
   border-radius: 10px;
   color: var(--muted);
+  word-break: break-word;
 }
 
 .upload input[type="file"] {
   color: var(--ink);
+  max-width: 100%;
+}
+
+.upload .upload-status {
+  word-break: break-word;
 }
 
 .gain {
@@ -332,5 +349,9 @@ header {
   .cta {
     width: 100%;
     justify-content: flex-start;
+  }
+
+  .grid {
+    grid-template-columns: 1fr;
   }
 }

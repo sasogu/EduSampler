@@ -25,9 +25,9 @@
   <main class="shell">
     <section class="hero">
       <div>
-        <h1>Construye tu banda en segundos</h1>
+        <h1>Lanza tus samplers al instante</h1>
         <p class="lede">
-          Activa personajes, mezcla capas y experimenta con ritmo y timbre. Diseñado para exploración rápida en clase.
+          Empieza con cinco ranuras vacías, sube tus sonidos y actívalos para que suenen juntos. Ideal para juegos rítmicos rápidos en clase.
         </p>
         <div class="controls">
           <button id="playToggle" class="pill primary">▶ Reproducir</button>
@@ -39,14 +39,11 @@
         </div>
       </div>
       <div class="panel">
-        <p class="panel-title">Kit activo</p>
-        <div class="pack-picker">
-          <select id="packSelect"></select>
-          <p id="packDescription" class="muted"></p>
-        </div>
+        <p class="panel-title">Banco de samplers</p>
+        <p id="slotSummary" class="muted">0 slots creados · 0 libres para añadir</p>
         <div class="custom-row">
           <div>
-            <p class="muted">Añade hasta 10 samplers con tus propios sonidos.</p>
+            <p class="muted">Arranca con 5 samplers vacíos y añade hasta 5 más cuando te queden cortos.</p>
           </div>
           <button id="addSampler" class="pill ghost small">+ Añadir sampler</button>
         </div>
@@ -59,7 +56,7 @@
 
     <section class="footer">
       <div>
-        <p class="muted">EduBox by EduTicTac</p>
+        <p class="muted">EduBox by EduTicTac · <span id="swVersion">SW: ...</span></p>
       </div>
       <div class="mini-controls">
         <button id="muteAll" class="pill ghost">Mute global</button>

@@ -1,65 +1,40 @@
-const packs = [
-  {
-    id: "aula-groove",
-    name: "Beat Aula",
-    tempo: 96,
-    description: "Bombo, caja y voces suaves para empezar.",
-    tracks: [
-      { id: "kick", name: "Bombo", emoji: "🟠", tags: ["pulso"], instrument: "kick", pattern: [1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0], gain: 0.9 },
-      { id: "snare", name: "Caja", emoji: "🟡", tags: ["backbeat"], instrument: "snare", pattern: [0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0], gain: 0.7 },
-      { id: "hat", name: "Hi-Hat", emoji: "🟢", tags: ["textura"], instrument: "hat", pattern: [0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1], gain: 0.5 },
-      { id: "bass", name: "Bajo", emoji: "🔵", tags: ["nota: La"], instrument: "bass", root: 45, pattern: [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0], gain: 0.7 },
-      { id: "chords", name: "Capa armónica", emoji: "🟣", tags: ["acorde menor"], instrument: "chord", root: 57, pattern: [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0], gain: 0.4 },
-      { id: "vox", name: "Voz suave", emoji: "🟤", tags: ["oo-ya"], instrument: "voice", pattern: [0, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0, 1, 0, 0, 1], gain: 0.3 }
-    ]
-  },
-  {
-    id: "electro-patio",
-    name: "Electro Patio",
-    tempo: 110,
-    description: "Ritmo marcado con sintes brillantes.",
-    tracks: [
-      { id: "kick", name: "Bombo profundo", emoji: "🟥", tags: ["pulso"], instrument: "kick", pattern: [1, 0, 0, 0, 1, 0, 0, 1, 1, 0, 0, 0, 1, 0, 0, 1], gain: 0.95 },
-      { id: "clap", name: "Clap", emoji: "🟧", tags: ["palma"], instrument: "snare", pattern: [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0], gain: 0.65 },
-      { id: "hat", name: "Hi-Hat cerrado", emoji: "🟩", tags: ["hi-hat"], instrument: "hat", pattern: [0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1], gain: 0.55 },
-      { id: "perc", name: "Percusión", emoji: "🟦", tags: ["contratiempo"], instrument: "perc", pattern: [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0], gain: 0.5 },
-      { id: "bass", name: "Bajo sintetizado", emoji: "🟪", tags: ["nota: Do"], instrument: "bass", root: 48, pattern: [1, 0, 0, 1, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0], gain: 0.7 },
-      { id: "lead", name: "Lead brillante", emoji: "⬜", tags: ["melodía"], instrument: "lead", root: 72, pattern: [1, 0, 0, 0, 0, 1, 0, 1, 0, 0, 1, 0, 0, 1, 0, 1], gain: 0.35 }
-    ]
-  }
-];
-
 const ui = {
   trackGrid: document.getElementById("trackGrid"),
   playToggle: document.getElementById("playToggle"),
   tempo: document.getElementById("tempo"),
   tempoValue: document.getElementById("tempoValue"),
-  packSelect: document.getElementById("packSelect"),
-  packDescription: document.getElementById("packDescription"),
   startAudio: document.getElementById("startAudio"),
   installPwa: document.getElementById("installPwa"),
   muteAll: document.getElementById("muteAll"),
   stopAll: document.getElementById("stopAll"),
-  addSampler: document.getElementById("addSampler")
+  addSampler: document.getElementById("addSampler"),
+  slotSummary: document.getElementById("slotSummary"),
+  swVersion: document.getElementById("swVersion")
 };
 
-const MAX_CUSTOM = 10;
-let customTracks = [];
-let currentPack = packs[0];
+const BASE_SLOTS = 5;
+const MAX_SLOTS = 10;
+const DEFAULT_TEMPO = 96;
+const DEFAULT_LOOP_BARS = 4;
+let globalLoopBars = DEFAULT_LOOP_BARS;
+let sampleTracks = [];
 
-class EduBoxEngine {
+class EduSamplerEngine {
   constructor() {
     this.ctx = null;
     this.master = null;
     this.noiseBuffer = null;
     this.tracks = [];
-    this.pack = null;
+    this.tempo = DEFAULT_TEMPO;
     this.step = 0;
     this.isRunning = false;
     this.timer = null;
     this.lookahead = 0.08;
     this.soloing = new Set();
     this.masterMuted = false;
+    this.nextBarTime = null;
+    this.barInLoop = 0;
+    this.loopBars = DEFAULT_LOOP_BARS;
   }
 
   async ensureContext() {
@@ -84,16 +59,20 @@ class EduBoxEngine {
     return buffer;
   }
 
-  usePack(pack, extraTracks = []) {
-    this.pack = pack;
-    const merged = [...pack.tracks, ...extraTracks];
-    this.tracks = merged.map((t) => ({
-      ...t,
-      enabled: t.enabled || false,
-      solo: t.solo || false,
-      muted: t.muted || false,
-      gainNode: this.ctx ? this.createTrackGain(t.gain) : null
-    }));
+  setTracks(tracks = []) {
+    this.tracks = tracks.map((t) => {
+      const existing = this.tracks?.find((tr) => tr.id === t.id);
+      return {
+        ...t,
+        enabled: t.enabled || false,
+        solo: t.solo || false,
+        muted: t.muted || false,
+        samplePlayingUntil: existing?.samplePlayingUntil || t.samplePlayingUntil || 0,
+        isSamplePlaying: existing?.isSamplePlaying || t.isSamplePlaying || false,
+        activeSource: existing?.activeSource || null,
+        gainNode: existing?.gainNode || (this.ctx ? this.createTrackGain(t.gain) : null)
+      };
+    });
     this.step = 0;
   }
 
@@ -112,10 +91,20 @@ class EduBoxEngine {
     }
   }
 
+  setLoopBars(bars) {
+    this.loopBars = Math.max(1, Math.round(bars || DEFAULT_LOOP_BARS));
+  }
+
   toggleTrack(id) {
     const t = this.tracks.find((tr) => tr.id === id);
     if (!t) return;
     t.enabled = !t.enabled;
+  }
+
+  setTrackEnabled(id, enabled) {
+    const t = this.tracks.find((tr) => tr.id === id);
+    if (!t) return;
+    t.enabled = enabled;
   }
 
   setGain(id, value) {
@@ -136,6 +125,17 @@ class EduBoxEngine {
     }
   }
 
+  setTrackSolo(id, solo) {
+    const t = this.tracks.find((tr) => tr.id === id);
+    if (!t) return;
+    t.solo = solo;
+    if (solo) {
+      this.soloing.add(id);
+    } else {
+      this.soloing.delete(id);
+    }
+  }
+
   muteAll(isMuted) {
     this.masterMuted = isMuted;
     if (this.master) {
@@ -146,12 +146,17 @@ class EduBoxEngine {
   play() {
     if (!this.ctx || this.isRunning) return;
     this.isRunning = true;
+    this.barInLoop = 0;
+    this.nextBarTime = this.ctx.currentTime + this.lookahead;
+    this.setLoopBars(globalLoopBars || DEFAULT_LOOP_BARS);
     const intervalMs = (60 / this.tempo / 4) * 1000;
     this.timer = setInterval(() => this.tick(), intervalMs);
   }
 
   stop() {
     this.isRunning = false;
+    this.nextBarTime = null;
+    this.barInLoop = 0;
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
@@ -162,20 +167,25 @@ class EduBoxEngine {
     const now = this.ctx.currentTime;
     const stepIndex = this.step % 16;
     const hasSolo = this.soloing.size > 0;
+    const barLength = this.getBarLengthSeconds();
 
     this.tracks.forEach((track) => {
       const audible = hasSolo ? track.solo : true;
       if (!track.enabled || !audible || track.muted || this.masterMuted) return;
       if (track.pattern[stepIndex]) {
-        const when = now + this.lookahead;
-        this.trigger(track, when);
+        const when = this.nextBarTime || now + this.lookahead;
+        this.trigger(track, when, stepIndex, barLength);
       }
     });
 
+    if (stepIndex === 15) {
+      this.nextBarTime = (this.nextBarTime || now) + barLength;
+      this.barInLoop = (this.barInLoop + 1) % this.loopBars;
+    }
     this.step = (this.step + 1) % 16;
   }
 
-  trigger(track, when) {
+  trigger(track, when, stepIndex, barLength) {
     const gain = track.gainNode || this.createTrackGain(track.gain);
     track.gainNode = gain;
     switch (track.instrument) {
@@ -204,7 +214,10 @@ class EduBoxEngine {
         this.playLead(when, gain, track.root || 72);
         break;
       case "sample":
-        this.playSample(track.sampleBuffer, when, gain);
+        // Solo disparamos al inicio de cada compás para mantenerlos a tempo
+        if (stepIndex === 0 && this.barInLoop === 0) {
+          this.playSample(track, track.sampleBuffer, when, gain, barLength);
+        }
         break;
       default:
         break;
@@ -339,38 +352,98 @@ class EduBoxEngine {
     osc.stop(time + 0.45);
   }
 
-  playSample(buffer, time, gain) {
+  playSample(track, buffer, time, gain, barLength) {
     if (!buffer) return;
+    const now = this.ctx.currentTime;
+    const naturalDuration = buffer.duration || 0;
+    const targetDuration = naturalDuration;
+    const playbackRate = 1; // mantener tono/tempo originales
+
+    // Si sigue sonando, esperamos a que termine antes de relanzar
+    if (track.isSamplePlaying && now < (track.samplePlayingUntil || 0)) {
+      return;
+    }
+
     const src = this.ctx.createBufferSource();
     src.buffer = buffer;
+    src.playbackRate.value = playbackRate || 1;
     src.connect(gain);
+    track.isSamplePlaying = true;
+    track.activeSource = src;
+    track.samplePlayingUntil = time + targetDuration;
+    src.onended = () => {
+      track.samplePlayingUntil = 0;
+      track.isSamplePlaying = false;
+      track.activeSource = null;
+    };
     src.start(time);
+  }
+
+  getBarLengthSeconds() {
+    const secondsPerBeat = 60 / this.tempo;
+    return secondsPerBeat * 4;
   }
 }
 
-const engine = new EduBoxEngine();
+const engine = new EduSamplerEngine();
 
 function midiToFreq(note) {
   return 440 * Math.pow(2, (note - 69) / 12);
 }
 
-function getAllTracks() {
-  return [...currentPack.tracks, ...customTracks];
+function createEmptyTrack(idx) {
+  return {
+    id: `sample-${idx}`,
+    name: `Sampler ${idx}`,
+    emoji: "🎛️",
+    tags: ["slot libre"],
+    instrument: "sample",
+    pattern: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // disparo al inicio del compás
+    gain: 0.7,
+    enabled: false,
+    sampleBuffer: null,
+    fileName: null,
+    samplePlayingUntil: 0,
+    isSamplePlaying: false,
+    activeSource: null
+  };
 }
 
-function renderPacks() {
-  ui.packSelect.innerHTML = "";
-  packs.forEach((p) => {
-    const option = document.createElement("option");
-    option.value = p.id;
-    option.textContent = `${p.name} · ${p.tempo} bpm`;
-    ui.packSelect.appendChild(option);
-  });
+
+function ensureBaseSlots() {
+  if (sampleTracks.length === 0) {
+    for (let i = 1; i <= BASE_SLOTS; i++) {
+      sampleTracks.push(createEmptyTrack(i));
+    }
+  }
+}
+
+function updateSwVersionLabel(text) {
+  if (!ui.swVersion) return;
+  ui.swVersion.textContent = text;
+}
+
+function barLengthFromTempo(tempo) {
+  const secondsPerBeat = 60 / tempo;
+  return secondsPerBeat * 4;
+}
+
+function recomputeLoopBars() {
+  const tempo = engine?.tempo || DEFAULT_TEMPO;
+  const barLength = barLengthFromTempo(tempo);
+  const barsList = sampleTracks
+    .filter((t) => t.sampleBuffer)
+    .map((t) => Math.max(1, Math.round((t.sampleBuffer.duration || 0) / barLength)));
+  globalLoopBars = barsList.length > 0 ? Math.min(...barsList) : DEFAULT_LOOP_BARS;
+  engine.setLoopBars(globalLoopBars);
 }
 
 function renderTracks() {
   ui.trackGrid.innerHTML = "";
-  getAllTracks().forEach((track) => {
+  sampleTracks.forEach((track) => {
+    const tags = track.fileName ? ["listo para sonar"] : track.tags;
+    const toggleClass = track.enabled ? "active" : "";
+    const soloClass = track.solo ? "active" : "";
     const card = document.createElement("article");
     card.className = "card";
     card.dataset.id = track.id;
@@ -379,12 +452,12 @@ function renderTracks() {
         <div class="avatar">${track.emoji}</div>
         <div>
           <div class="name">${track.name}</div>
-          <div class="tags">${track.tags.map((t) => `<span class="tag">${t}</span>`).join("")}</div>
+          <div class="tags">${tags.map((t) => `<span class="tag">${t}</span>`).join("")}</div>
         </div>
       </div>
       <div class="actions">
-        <button class="toggle" data-action="toggle">Activar</button>
-        <button class="toggle" data-action="solo">Solo</button>
+        <button class="toggle ${toggleClass}" data-action="toggle">Activar</button>
+        <button class="toggle ${soloClass}" data-action="solo">Solo</button>
       </div>
       <div class="mini">
         <span class="muted">Volumen</span>
@@ -404,6 +477,7 @@ function renderTracks() {
     `;
     ui.trackGrid.appendChild(card);
   });
+  renderSlotSummary();
 }
 
 function attachCardEvents() {
@@ -413,13 +487,17 @@ function attachCardEvents() {
     const card = ev.target.closest(".card");
     const id = card?.dataset.id;
     if (!id) return;
+    const track = sampleTracks.find((t) => t.id === id);
+    if (!track) return;
     if (action === "toggle") {
-      engine.toggleTrack(id);
-      ev.target.classList.toggle("active");
+      track.enabled = !track.enabled;
+      if (engine.ctx) engine.setTrackEnabled(id, track.enabled);
+      ev.target.classList.toggle("active", track.enabled);
     }
     if (action === "solo") {
-      engine.soloTrack(id);
-      ev.target.classList.toggle("active");
+      track.solo = !track.solo;
+      if (engine.ctx) engine.setTrackSolo(id, track.solo);
+      ev.target.classList.toggle("active", track.solo);
     }
   });
 
@@ -428,7 +506,11 @@ function attachCardEvents() {
     const card = ev.target.closest(".card");
     const id = card?.dataset.id;
     if (!id) return;
-    engine.setGain(id, Number(ev.target.value));
+    const track = sampleTracks.find((t) => t.id === id);
+    if (!track) return;
+    const value = Number(ev.target.value);
+    track.gain = value;
+    engine.setGain(id, value);
   });
 
   ui.trackGrid.addEventListener("change", async (ev) => {
@@ -438,48 +520,40 @@ function attachCardEvents() {
     const file = ev.target.files?.[0];
     if (!id || !file) return;
     await loadUserSample(file, id, card);
+    renderTracks();
   });
 }
 
 async function init() {
-  renderPacks();
-  ui.packDescription.textContent = currentPack.description;
-  ui.packSelect.value = currentPack.id;
-  ui.tempo.value = currentPack.tempo;
-  ui.tempoValue.textContent = `${currentPack.tempo} bpm`;
+  ensureBaseSlots();
+  ui.tempo.value = DEFAULT_TEMPO;
+  ui.tempoValue.textContent = `${DEFAULT_TEMPO} bpm`;
   renderTracks();
+  renderSlotSummary();
   attachCardEvents();
+  updateSwVersionLabel("SW: esperando...");
   await setupServiceWorker();
+  await displaySwVersion();
 }
 
 async function startAudio() {
   await engine.ensureContext();
-  engine.usePack(currentPack, customTracks);
+  engine.setTracks(sampleTracks);
 }
 
 function addCustomTrack() {
-  if (customTracks.length >= MAX_CUSTOM) {
+  if (sampleTracks.length >= MAX_SLOTS) {
     alert("Límite de 10 samplers alcanzado.");
     return;
   }
-  const idx = customTracks.length + 1;
-  const track = {
-    id: `user-${idx}`,
-    name: `Sampler ${idx}`,
-    emoji: "🎛️",
-    tags: ["cargado por ti"],
-    instrument: "sample",
-    pattern: [1, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
-    gain: 0.7,
-    enabled: false,
-    sampleBuffer: null,
-    fileName: null
-  };
-  customTracks.push(track);
+  const idx = sampleTracks.length + 1;
+  const track = createEmptyTrack(idx);
+  sampleTracks.push(track);
   renderTracks();
   if (engine.ctx) {
-    engine.usePack(currentPack, customTracks);
+    engine.setTracks(sampleTracks);
   }
+  renderSlotSummary();
 }
 
 async function loadUserSample(file, trackId, card) {
@@ -488,11 +562,13 @@ async function loadUserSample(file, trackId, card) {
     const arrayBuffer = await file.arrayBuffer();
     const audioBuffer = await engine.ctx.decodeAudioData(arrayBuffer);
     engine.setSample(trackId, audioBuffer);
-    const target = customTracks.find((t) => t.id === trackId);
+    const target = sampleTracks.find((t) => t.id === trackId);
     if (target) {
       target.sampleBuffer = audioBuffer;
       target.fileName = file.name;
+      target.tags = ["listo para sonar"];
     }
+    recomputeLoopBars();
     const status = card.querySelector(".upload-status");
     if (status) {
       status.textContent = `Cargado: ${file.name}`;
@@ -504,14 +580,51 @@ async function loadUserSample(file, trackId, card) {
   }
 }
 
+function renderSlotSummary() {
+  if (!ui.slotSummary) return;
+  const libres = MAX_SLOTS - sampleTracks.length;
+  ui.slotSummary.textContent = `${sampleTracks.length} slots creados · ${libres} libres para añadir`;
+}
+
 async function setupServiceWorker() {
   if ("serviceWorker" in navigator) {
     try {
-      await navigator.serviceWorker.register("/service-worker.js");
+      const reg = await navigator.serviceWorker.register("/service-worker.js");
+      if (!navigator.serviceWorker.controller && reg.waiting) {
+        reg.waiting.postMessage({ type: "SKIP_WAITING" });
+      }
     } catch (err) {
       // ok si falla en local
       console.warn("Service worker no disponible", err);
     }
+  }
+}
+
+async function displaySwVersion() {
+  if (!("serviceWorker" in navigator) || !ui.swVersion) {
+    updateSwVersionLabel("SW: no disponible");
+    return;
+  }
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const target = registration.active || navigator.serviceWorker.controller;
+    if (!target) {
+      updateSwVersionLabel("SW: no activo");
+      return;
+    }
+
+    const handler = (event) => {
+      if (event.data?.type === "SW_VERSION") {
+        updateSwVersionLabel(`SW ${event.data.version}`);
+        navigator.serviceWorker.removeEventListener("message", handler);
+      }
+    };
+
+    navigator.serviceWorker.addEventListener("message", handler);
+    target.postMessage({ type: "GET_VERSION" });
+  } catch (err) {
+    console.warn("No se pudo obtener la versión del SW", err);
+    updateSwVersionLabel("SW: error");
   }
 }
 
@@ -531,6 +644,7 @@ ui.installPwa.addEventListener("click", async () => {
 
 ui.playToggle.addEventListener("click", async () => {
   await startAudio();
+  engine.muteAll(false);
   if (!engine.isRunning) {
     engine.play();
     ui.playToggle.textContent = "⏸ Pausar";
@@ -545,24 +659,13 @@ ui.startAudio.addEventListener("click", async () => {
   ui.startAudio.textContent = "Audio listo";
 });
 
-ui.packSelect.addEventListener("change", async (e) => {
-  const pack = packs.find((p) => p.id === e.target.value);
-  currentPack = pack;
-  ui.packDescription.textContent = pack.description;
-  ui.tempo.value = pack.tempo;
-  ui.tempoValue.textContent = `${pack.tempo} bpm`;
-  renderTracks();
-  if (engine.ctx) {
-    engine.usePack(pack, customTracks);
-  }
-});
-
 ui.tempo.addEventListener("input", (e) => {
   const bpm = Number(e.target.value);
   ui.tempoValue.textContent = `${bpm} bpm`;
   if (engine.ctx) {
     engine.setTempo(bpm);
   }
+  recomputeLoopBars();
 });
 
 ui.muteAll.addEventListener("click", async () => {
@@ -574,8 +677,7 @@ ui.muteAll.addEventListener("click", async () => {
 
 ui.stopAll.addEventListener("click", () => {
   engine.stop();
-  engine.masterMuted = true;
-  if (engine.master) engine.master.gain.value = 0;
+  engine.muteAll(true);
   ui.playToggle.textContent = "▶ Reproducir";
 });
 

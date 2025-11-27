@@ -1,4 +1,4 @@
-const CACHE = "edubox-v1";
+const CACHE = "edusampler-v0.0.10";
 const ASSETS = [
   "/",
   "/index.html",
@@ -36,4 +36,15 @@ self.addEventListener("fetch", (event) => {
       );
     })
   );
+});
+
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "GET_VERSION") {
+    const payload = { type: "SW_VERSION", version: CACHE };
+    if (event.ports && event.ports[0]) {
+      event.ports[0].postMessage(payload);
+    } else if (event.source) {
+      event.source.postMessage(payload);
+    }
+  }
 });
