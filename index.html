@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#0f766e">
+  <title>EduBox · Mezcla y crea</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="styles/main.css">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+</head>
+<body>
+  <div class="bg-shapes" aria-hidden="true"></div>
+  <header class="shell">
+    <div class="branding">
+      <div class="logo">EduBox</div>
+      <p class="kicker">Laboratorio de loops para clase de música</p>
+    </div>
+    <div class="cta">
+      <button id="startAudio" class="pill primary">Iniciar audio</button>
+      <button id="installPwa" class="pill ghost">Instalar PWA</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <h1>Construye tu banda en segundos</h1>
+        <p class="lede">
+          Activa personajes, mezcla capas y experimenta con ritmo y timbre. Diseñado para exploración rápida en clase.
+        </p>
+        <div class="controls">
+          <button id="playToggle" class="pill primary">▶ Reproducir</button>
+          <div class="tempo">
+            <label for="tempo">Tempo</label>
+            <input type="range" id="tempo" min="70" max="130" value="96">
+            <span id="tempoValue">96 bpm</span>
+          </div>
+        </div>
+      </div>
+      <div class="panel">
+        <p class="panel-title">Kit activo</p>
+        <div class="pack-picker">
+          <select id="packSelect"></select>
+          <p id="packDescription" class="muted"></p>
+        </div>
+        <div class="custom-row">
+          <div>
+            <p class="muted">Añade hasta 10 samplers con tus propios sonidos.</p>
+          </div>
+          <button id="addSampler" class="pill ghost small">+ Añadir sampler</button>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="grid" id="trackGrid"></div>
+    </section>
+
+    <section class="footer">
+      <div>
+        <p class="muted">EduBox by EduTicTac</p>
+      </div>
+      <div class="mini-controls">
+        <button id="muteAll" class="pill ghost">Mute global</button>
+        <button id="stopAll" class="pill ghost">Silencio</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="scripts/main.js" type="module"></script>
+</body>
+</html>
