@@ -17,6 +17,10 @@ const MAX_SLOTS = 10;
 const DEFAULT_TEMPO = 96;
 const DEFAULT_LOOP_BARS = 4;
 let globalLoopBars = DEFAULT_LOOP_BARS;
+const DB_NAME = "edusampler-db";
+const DB_VERSION = 1;
+const DB_STORE = "samples";
+let db = null;
 let sampleTracks = [];
 
 class EduSamplerEngine {
@@ -61,17 +65,21 @@ class EduSamplerEngine {
 
   setTracks(tracks = []) {
     this.tracks = tracks.map((t) => {
-      const existing = this.tracks?.find((tr) => tr.id === t.id);
-      return {
-        ...t,
-        enabled: t.enabled || false,
-        solo: t.solo || false,
-        muted: t.muted || false,
-        samplePlayingUntil: existing?.samplePlayingUntil || t.samplePlayingUntil || 0,
-        isSamplePlaying: existing?.isSamplePlaying || t.isSamplePlaying || false,
-        activeSource: existing?.activeSource || null,
-        gainNode: existing?.gainNode || (this.ctx ? this.createTrackGain(t.gain) : null)
-      };
+      // trabajamos sobre la misma referencia para que los cambios de loop se reflejen
+      const track = t;
+      track.enabled = Boolean(track.enabled);
+      track.solo = Boolean(track.solo);
+      track.muted = Boolean(track.muted);
+      track.samplePlayingUntil = track.samplePlayingUntil ?? 0;
+      track.isSamplePlaying = track.isSamplePlaying ?? false;
+      track.activeSource = track.activeSource ?? null;
+      track.loopStart = track.loopStart ?? 0;
+      track.loopEnd = track.loopEnd ?? null;
+      track.waveform = track.waveform ?? null;
+      if (!track.gainNode && this.ctx) {
+        track.gainNode = this.createTrackGain(track.gain);
+      }
+      return track;
     });
     this.step = 0;
   }
@@ -99,12 +107,18 @@ class EduSamplerEngine {
     const t = this.tracks.find((tr) => tr.id === id);
     if (!t) return;
     t.enabled = !t.enabled;
+    if (!t.enabled) {
+      this.stopTrackPlayback(t);
+    }
   }
 
   setTrackEnabled(id, enabled) {
     const t = this.tracks.find((tr) => tr.id === id);
     if (!t) return;
     t.enabled = enabled;
+    if (!enabled) {
+      this.stopTrackPlayback(t);
+    }
   }
 
   setGain(id, value) {
@@ -117,22 +131,31 @@ class EduSamplerEngine {
   soloTrack(id) {
     const t = this.tracks.find((tr) => tr.id === id);
     if (!t) return;
-    t.solo = !t.solo;
-    if (t.solo) {
+    const nextSolo = !t.solo;
+    // si activamos solo, desactivamos otros solos y limpiamos set
+    if (nextSolo) {
+      this.tracks.forEach((tr) => {
+        tr.solo = tr.id === id;
+      });
+      this.soloing.clear();
       this.soloing.add(id);
     } else {
-      this.soloing.delete(id);
+      // si se desactiva, queda sin solos
+      this.tracks.forEach((tr) => (tr.solo = false));
+      this.soloing.clear();
     }
   }
 
   setTrackSolo(id, solo) {
     const t = this.tracks.find((tr) => tr.id === id);
     if (!t) return;
-    t.solo = solo;
     if (solo) {
+      this.tracks.forEach((tr) => (tr.solo = tr.id === id));
+      this.soloing.clear();
       this.soloing.add(id);
     } else {
-      this.soloing.delete(id);
+      this.tracks.forEach((tr) => (tr.solo = false));
+      this.soloing.clear();
     }
   }
 
@@ -161,6 +184,7 @@ class EduSamplerEngine {
       clearInterval(this.timer);
       this.timer = null;
     }
+    this.tracks.forEach((t) => this.stopTrackPlayback(t));
   }
 
   tick() {
@@ -356,32 +380,57 @@ class EduSamplerEngine {
     if (!buffer) return;
     const now = this.ctx.currentTime;
     const naturalDuration = buffer.duration || 0;
-    const targetDuration = naturalDuration;
-    const playbackRate = 1; // mantener tono/tempo originales
+    const loopStart = Math.max(0, Math.min(track.loopStart || 0, naturalDuration));
+    const loopEndRaw = track.loopEnd ?? naturalDuration;
+    const loopEnd = Math.min(Math.max(loopEndRaw, loopStart + 0.01), naturalDuration);
+    const playDuration = loopEnd - loopStart;
+    const targetDuration = barLength * this.loopBars;
+    const playbackRate = playDuration > 0 && targetDuration > 0 ? playDuration / targetDuration : 1;
 
-    // Si sigue sonando, esperamos a que termine antes de relanzar
+    // Si sigue sonando, dejamos que continúe (looping continuo)
     if (track.isSamplePlaying && now < (track.samplePlayingUntil || 0)) {
       return;
     }
 
+    // Si hubiera una fuente previa viva, la detenemos
+    resetTrackPlayback(track);
+
     const src = this.ctx.createBufferSource();
     src.buffer = buffer;
     src.playbackRate.value = playbackRate || 1;
+    src.loop = true;
+    src.loopStart = loopStart;
+    src.loopEnd = loopEnd;
     src.connect(gain);
     track.isSamplePlaying = true;
     track.activeSource = src;
-    track.samplePlayingUntil = time + targetDuration;
+    // uso Infinity para indicar que está en loop continuo
+    track.samplePlayingUntil = Number.POSITIVE_INFINITY;
     src.onended = () => {
       track.samplePlayingUntil = 0;
       track.isSamplePlaying = false;
       track.activeSource = null;
     };
-    src.start(time);
+    src.start(time, loopStart);
   }
 
   getBarLengthSeconds() {
     const secondsPerBeat = 60 / this.tempo;
     return secondsPerBeat * 4;
+  }
+
+  stopTrackPlayback(track) {
+    if (!track) return;
+    if (track.activeSource) {
+      try {
+        track.activeSource.stop();
+      } catch (err) {
+        // ignore
+      }
+    }
+    track.activeSource = null;
+    track.isSamplePlaying = false;
+    track.samplePlayingUntil = 0;
   }
 }
 
@@ -405,7 +454,11 @@ function createEmptyTrack(idx) {
     fileName: null,
     samplePlayingUntil: 0,
     isSamplePlaying: false,
-    activeSource: null
+    activeSource: null,
+    loopStart: 0,
+    loopEnd: null,
+    waveform: null,
+    displayName: `Sampler ${idx}`
   };
 }
 
@@ -433,9 +486,240 @@ function recomputeLoopBars() {
   const barLength = barLengthFromTempo(tempo);
   const barsList = sampleTracks
     .filter((t) => t.sampleBuffer)
-    .map((t) => Math.max(1, Math.round((t.sampleBuffer.duration || 0) / barLength)));
+    .map((t) => {
+      const dur = getLoopDuration(t);
+      return Math.max(1, Math.round(dur / barLength));
+    });
   globalLoopBars = barsList.length > 0 ? Math.min(...barsList) : DEFAULT_LOOP_BARS;
   engine.setLoopBars(globalLoopBars);
+}
+
+function getLoopDuration(track) {
+  const bufferDur = track.sampleBuffer?.duration || 0;
+  const start = Math.max(0, Math.min(track.loopStart || 0, bufferDur));
+  const endRaw = track.loopEnd ?? bufferDur;
+  const end = Math.min(Math.max(endRaw, start + 0.01), bufferDur);
+  return Math.max(0.01, end - start);
+}
+
+function updateLoopPoints(track, type, value) {
+  const bufferDur = track.sampleBuffer?.duration || 0;
+  const safeVal = Number.isFinite(value) && value >= 0 ? value : 0;
+  if (type === "start") {
+    track.loopStart = Math.min(safeVal, bufferDur);
+    if (track.loopEnd !== null && track.loopEnd <= track.loopStart) {
+      track.loopEnd = bufferDur || track.loopStart + 0.5;
+    }
+  }
+  if (type === "end") {
+    const endCandidate = Math.min(safeVal || bufferDur, bufferDur || safeVal);
+    track.loopEnd = endCandidate || bufferDur;
+    if (track.loopEnd <= track.loopStart) {
+      track.loopEnd = Math.min(bufferDur || track.loopStart + 0.5, track.loopStart + 0.5);
+    }
+  }
+  recomputeLoopBars();
+  resetTrackPlayback(track);
+  syncEngineTracks();
+  saveStateMeta();
+  return { start: track.loopStart, end: track.loopEnd };
+}
+
+function syncEngineTracks() {
+  if (engine.ctx) {
+    engine.setTracks(sampleTracks);
+  }
+}
+
+function resetTrackPlayback(track) {
+  if (!track) return;
+  if (track.activeSource) {
+    try {
+      track.activeSource.stop();
+    } catch (err) {
+      // ok si ya no suena
+    }
+  }
+  track.activeSource = null;
+  track.isSamplePlaying = false;
+  track.samplePlayingUntil = 0;
+  const engTrack = engine?.tracks?.find((t) => t.id === track.id);
+  if (engTrack && engTrack.activeSource && engTrack.activeSource !== track.activeSource) {
+    try {
+      engTrack.activeSource.stop();
+    } catch (err) {
+      // ignore
+    }
+    engTrack.activeSource = null;
+    engTrack.isSamplePlaying = false;
+    engTrack.samplePlayingUntil = 0;
+  }
+}
+
+function buildWaveform(buffer, slices = 400) {
+  const data = buffer.getChannelData(0);
+  const step = Math.max(1, Math.floor(data.length / slices));
+  const points = [];
+  for (let i = 0; i < data.length; i += step) {
+    const slice = data.subarray(i, i + step);
+    let min = 1;
+    let max = -1;
+    for (let j = 0; j < slice.length; j++) {
+      const v = slice[j];
+      if (v < min) min = v;
+      if (v > max) max = v;
+    }
+    points.push({ min, max });
+  }
+  return points;
+}
+
+function drawWaveform(canvas, track) {
+  if (!canvas || !track || !track.sampleBuffer) return;
+  const ctx = canvas.getContext("2d");
+  const width = canvas.width;
+  const height = canvas.height;
+  ctx.clearRect(0, 0, width, height);
+
+  const mid = height / 2;
+  ctx.fillStyle = "rgba(255,255,255,0.06)";
+  ctx.fillRect(0, mid - 1, width, 2);
+
+  const points = track.waveform || buildWaveform(track.sampleBuffer);
+  track.waveform = points;
+  ctx.strokeStyle = "rgba(244, 179, 36, 0.8)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  points.forEach((p, idx) => {
+    const x = (idx / points.length) * width;
+    const y1 = mid + p.min * mid;
+    const y2 = mid + p.max * mid;
+    ctx.moveTo(x, y1);
+    ctx.lineTo(x, y2);
+  });
+  ctx.stroke();
+
+  // overlay de selección
+  const dur = track.sampleBuffer.duration || 1;
+  const startRatio = (track.loopStart || 0) / dur;
+  const endRatio = (track.loopEnd ?? dur) / dur;
+  const selX = startRatio * width;
+  const selW = Math.max(2, (endRatio - startRatio) * width);
+  ctx.fillStyle = "rgba(48, 191, 179, 0.18)";
+  ctx.fillRect(selX, 0, selW, height);
+
+  // asas
+  ctx.fillStyle = "#f4b324";
+  ctx.fillRect(selX - 2, 0, 4, height);
+  ctx.fillRect(selX + selW - 2, 0, 4, height);
+}
+
+function drawAllWaveforms() {
+  requestAnimationFrame(() => {
+    document.querySelectorAll("[data-wave-canvas]").forEach((canvasEl) => {
+      const id = canvasEl.dataset.waveCanvas;
+      const track = sampleTracks.find((t) => t.id === id);
+      if (track) drawWaveform(canvasEl, track);
+    });
+  });
+}
+
+// ---------- Persistencia (IndexedDB + localStorage) ----------
+async function initDb() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(DB_NAME, DB_VERSION);
+    request.onupgradeneeded = (event) => {
+      const dbInstance = event.target.result;
+      if (!dbInstance.objectStoreNames.contains(DB_STORE)) {
+        dbInstance.createObjectStore(DB_STORE, { keyPath: "id" });
+      }
+    };
+    request.onsuccess = () => {
+      db = request.result;
+      resolve();
+    };
+    request.onerror = () => reject(request.error);
+  });
+}
+
+function saveStateMeta() {
+  const meta = sampleTracks.map(({ id, displayName, fileName, loopStart, loopEnd, enabled }) => ({
+    id,
+    displayName,
+    fileName,
+    loopStart,
+    loopEnd,
+    enabled
+  }));
+  localStorage.setItem("edusampler-meta", JSON.stringify(meta));
+}
+
+async function saveSampleToDb(track, file) {
+  if (!db || !track || !file) return;
+  const buffer = await file.arrayBuffer();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, "readwrite");
+    const store = tx.objectStore(DB_STORE);
+    const record = {
+      id: track.id,
+      name: track.displayName || track.name,
+      fileName: file.name,
+      loopStart: track.loopStart,
+      loopEnd: track.loopEnd,
+      data: buffer
+    };
+    store.put(record);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function restoreSamplesFromDb() {
+  try {
+    const metaRaw = localStorage.getItem("edusampler-meta");
+    const meta = metaRaw ? JSON.parse(metaRaw) : [];
+    if (!db) return;
+    const records = await readAllSamples();
+    // asignar metadatos y buffers a slots existentes o crear nuevos
+    for (const m of meta) {
+      let track = sampleTracks.find((t) => t.id === m.id);
+      if (!track) {
+        if (sampleTracks.length >= MAX_SLOTS) break;
+        track = createEmptyTrack(sampleTracks.length + 1);
+        track.id = m.id;
+        sampleTracks.push(track);
+      }
+      track.displayName = m.displayName || track.displayName;
+      track.fileName = m.fileName || track.fileName;
+      track.loopStart = m.loopStart ?? track.loopStart;
+      track.loopEnd = m.loopEnd ?? track.loopEnd;
+      track.enabled = m.enabled ?? track.enabled;
+      const rec = records.find((r) => r.id === m.id);
+      if (rec?.data) {
+        const audioBuffer = await decodeArrayBuffer(rec.data);
+        track.sampleBuffer = audioBuffer;
+        track.waveform = buildWaveform(audioBuffer);
+      }
+    }
+    syncEngineTracks();
+  } catch (err) {
+    console.warn("No se pudieron restaurar samples", err);
+  }
+}
+
+function readAllSamples() {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(DB_STORE, "readonly");
+    const store = tx.objectStore(DB_STORE);
+    const req = store.getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function decodeArrayBuffer(buffer) {
+  await startAudio();
+  return engine.ctx.decodeAudioData(buffer.slice(0));
 }
 
 function renderTracks() {
@@ -455,6 +739,10 @@ function renderTracks() {
           <div class="tags">${tags.map((t) => `<span class="tag">${t}</span>`).join("")}</div>
         </div>
       </div>
+      <div class="mini name-edit">
+        <label class="muted" for="name-${track.id}">Nombre</label>
+        <input id="name-${track.id}" type="text" maxlength="40" value="${track.displayName || track.name}">
+      </div>
       <div class="actions">
         <button class="toggle ${toggleClass}" data-action="toggle">Activar</button>
         <button class="toggle ${soloClass}" data-action="solo">Solo</button>
@@ -471,13 +759,32 @@ function renderTracks() {
               <span class="muted">Sube tu sample (WAV/OGG/MP3)</span>
               <input type="file" accept="audio/*" data-upload="sample">
               <span class="upload-status muted">${track.fileName ? `Cargado: ${track.fileName}` : "Sin sample"}</span>
-             </label>`
+             </label>
+             <div class="mini loop-editor">
+               <div class="loop-field">
+                 <label class="muted" for="loop-start-${track.id}">Inicio (s)</label>
+                 <input id="loop-start-${track.id}" type="number" min="0" step="0.1" value="${track.loopStart ?? 0}" data-loop="start">
+               </div>
+               <div class="loop-field">
+                 <label class="muted" for="loop-end-${track.id}">Fin (s)</label>
+                 <input id="loop-end-${track.id}" type="number" min="0" step="0.1" value="${track.loopEnd ?? ""}" placeholder="${track.sampleBuffer ? track.sampleBuffer.duration.toFixed(1) : ""}" data-loop="end">
+               </div>
+             </div>
+             ${
+               track.sampleBuffer
+                 ? `<div class="wave-container" data-wave="${track.id}">
+                      <canvas data-wave-canvas="${track.id}" width="600" height="110"></canvas>
+                      <div class="wave-meta muted">Haz clic o arrastra para ajustar inicio/fin</div>
+                    </div>`
+                 : ""
+             }`
           : ""
       }
     `;
     ui.trackGrid.appendChild(card);
   });
   renderSlotSummary();
+  drawAllWaveforms();
 }
 
 function attachCardEvents() {
@@ -497,7 +804,13 @@ function attachCardEvents() {
     if (action === "solo") {
       track.solo = !track.solo;
       if (engine.ctx) engine.setTrackSolo(id, track.solo);
-      ev.target.classList.toggle("active", track.solo);
+      // actualizar todos los botones solo para reflejar exclusividad
+      ui.trackGrid.querySelectorAll('[data-action="solo"]').forEach((btn) => {
+        const bCard = btn.closest(".card");
+        const bid = bCard?.dataset.id;
+        const bTrack = sampleTracks.find((t) => t.id === bid);
+        btn.classList.toggle("active", bTrack?.solo);
+      });
     }
   });
 
@@ -513,6 +826,16 @@ function attachCardEvents() {
     engine.setGain(id, value);
   });
 
+  ui.trackGrid.addEventListener("input", (ev) => {
+    if (ev.target.type !== "text") return;
+    const card = ev.target.closest(".card");
+    const id = card?.dataset.id;
+    if (!id) return;
+    const track = sampleTracks.find((t) => t.id === id);
+    if (!track) return;
+    track.displayName = ev.target.value.slice(0, 40);
+  });
+
   ui.trackGrid.addEventListener("change", async (ev) => {
     if (ev.target.dataset.upload !== "sample") return;
     const card = ev.target.closest(".card");
@@ -521,15 +844,69 @@ function attachCardEvents() {
     if (!id || !file) return;
     await loadUserSample(file, id, card);
     renderTracks();
+    drawAllWaveforms();
+  });
+
+  ui.trackGrid.addEventListener("change", (ev) => {
+    const loopType = ev.target.dataset.loop;
+    if (!loopType) return;
+    const card = ev.target.closest(".card");
+    const id = card?.dataset.id;
+    if (!id) return;
+    const track = sampleTracks.find((t) => t.id === id);
+    if (!track) return;
+    const newValue = Number(ev.target.value);
+    const updated = updateLoopPoints(track, loopType, newValue);
+    ev.target.value = updated[loopType];
+    // sincronizar para que el siguiente disparo respete los nuevos límites
+    drawAllWaveforms();
+  });
+
+  ui.trackGrid.addEventListener("pointerdown", (ev) => {
+    const container = ev.target.closest("[data-wave]");
+    if (!container) return;
+    const id = container.dataset.wave;
+    const track = sampleTracks.find((t) => t.id === id);
+    const canvas = container.querySelector("canvas");
+    if (!track || !canvas) return;
+    ev.preventDefault();
+    const moveHandler = (moveEv) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = Math.max(0, Math.min(moveEv.clientX - rect.left, rect.width));
+      const ratio = rect.width ? x / rect.width : 0;
+      const dur = track.sampleBuffer?.duration || 0;
+      const absoluteTime = ratio * dur;
+      // el handle más cercano es el que se mueve
+      const distStart = Math.abs((track.loopStart || 0) - absoluteTime);
+      const distEnd = Math.abs((track.loopEnd ?? dur) - absoluteTime);
+      const which = distStart <= distEnd ? "start" : "end";
+      updateLoopPoints(track, which, absoluteTime);
+      const startInput = container.parentElement.querySelector(`input[data-loop="start"]`);
+      const endInput = container.parentElement.querySelector(`input[data-loop="end"]`);
+      if (startInput) startInput.value = track.loopStart;
+      if (endInput) endInput.value = track.loopEnd ?? "";
+      drawWaveform(canvas, track);
+    };
+    const upHandler = () => {
+      window.removeEventListener("pointermove", moveHandler);
+      window.removeEventListener("pointerup", upHandler);
+    };
+    window.addEventListener("pointermove", moveHandler);
+    window.addEventListener("pointerup", upHandler);
+    moveHandler(ev);
   });
 }
 
 async function init() {
   ensureBaseSlots();
+  await initDb();
+  await restoreSamplesFromDb();
   ui.tempo.value = DEFAULT_TEMPO;
   ui.tempoValue.textContent = `${DEFAULT_TEMPO} bpm`;
   renderTracks();
+  drawAllWaveforms();
   renderSlotSummary();
+  syncEngineTracks();
   attachCardEvents();
   updateSwVersionLabel("SW: esperando...");
   await setupServiceWorker();
@@ -554,6 +931,7 @@ function addCustomTrack() {
     engine.setTracks(sampleTracks);
   }
   renderSlotSummary();
+  saveStateMeta();
 }
 
 async function loadUserSample(file, trackId, card) {
@@ -567,8 +945,13 @@ async function loadUserSample(file, trackId, card) {
       target.sampleBuffer = audioBuffer;
       target.fileName = file.name;
       target.tags = ["listo para sonar"];
+      target.loopStart = 0;
+      target.loopEnd = audioBuffer.duration;
+      target.waveform = buildWaveform(audioBuffer);
+      await saveSampleToDb(target, file);
     }
     recomputeLoopBars();
+    saveStateMeta();
     const status = card.querySelector(".upload-status");
     if (status) {
       status.textContent = `Cargado: ${file.name}`;
@@ -584,6 +967,7 @@ function renderSlotSummary() {
   if (!ui.slotSummary) return;
   const libres = MAX_SLOTS - sampleTracks.length;
   ui.slotSummary.textContent = `${sampleTracks.length} slots creados · ${libres} libres para añadir`;
+  saveStateMeta();
 }
 
 async function setupServiceWorker() {

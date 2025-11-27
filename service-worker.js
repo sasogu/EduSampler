@@ -1,4 +1,4 @@
-const CACHE = "edusampler-v0.0.10";
+const CACHE = "edusampler-v0.0.21";
 const ASSETS = [
   "/",
   "/index.html",

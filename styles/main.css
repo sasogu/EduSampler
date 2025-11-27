@@ -283,6 +283,68 @@ header {
   gap: 12px;
 }
 
+.mini.loop-editor {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.mini.name-edit {
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.mini.name-edit input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+}
+
+.mini.name-edit input:focus {
+  outline: 1px solid var(--accent-2);
+}
+
+.loop-field {
+  display: grid;
+  gap: 4px;
+}
+
+.loop-field input {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--ink);
+}
+
+.loop-field input:focus {
+  outline: 1px solid var(--accent-2);
+}
+
+.wave-container {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  padding: 8px;
+  display: grid;
+  gap: 6px;
+}
+
+.wave-container canvas {
+  width: 100%;
+  height: 110px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.wave-meta {
+  font-size: 0.9rem;
+  color: var(--muted);
+}
+
 .upload {
   display: grid;
   gap: 6px;

@@ -1,4 +1,4 @@
-# EduBox (prototipo)
+# EduSampler (prototipo)
 
 PWA tipo Incredibox para clase de música: activa personajes, mezcla capas generadas con Web Audio y funciona offline.
 
