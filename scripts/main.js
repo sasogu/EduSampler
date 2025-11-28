@@ -94,7 +94,7 @@ const translations = {
     btnActivate: "Activar",
     btnSolo: "Solo",
     tagEmpty: "slot libre",
-    about: "EduSampler por Samuel Soriano. Licencia MIT. Los sonidos incluidos provienen de Pixabay."
+  
   },
   ca: {
     heroTitle: "Llança els teus samplers al moment",
@@ -136,7 +136,7 @@ const translations = {
     btnActivate: "Activa",
     btnSolo: "Solo",
     tagEmpty: "slot lliure",
-    about: "EduSampler per Samuel Soriano. Llicència MIT. Els sons inclosos provenen de Pixabay."
+    
   },
   en: {
     heroTitle: "Build your band in seconds",
@@ -178,7 +178,7 @@ const translations = {
     btnActivate: "Activate",
     btnSolo: "Solo",
     tagEmpty: "empty slot",
-    about: "EduSampler by Samuel Soriano. MIT license. Included sounds come from Pixabay."
+    
   }
 };
 
@@ -200,122 +200,6 @@ function t(key, params = {}) {
   return str;
 }
 
-const translations = {
-  es: {
-    heroTitle: "Construeix la teua banda en segons",
-    heroDesc: "Empieza con slots vacíos, sube tus sonidos y actívalos juntos.",
-    tempoLabel: "Tempo global (%)",
-    record: "⏺ Grabar",
-    recordStop: "⏹ Parar",
-    recordStatusRecording: "Grabando mezcla...",
-    recordStatusGenerating: "Generando archivo...",
-    recordStatusReady: "Archivo listo",
-    recordStatusError: "No se pudo grabar",
-    collapse: "Contraer",
-    expand: "Expandir",
-    bankTitle: "Banco de samplers",
-    samplerHint: "Arranca con 4 samplers vacíos y añade hasta 6 más cuando te queden cortos.",
-    addSampler: "+ Añadir sampler",
-    mixPlaceholder: "Cargar mezcla...",
-    saveMix: "Guardar mezcla",
-    slotsSummary: "{used} slots creados · {free} libres para añadir",
-    muteAll: "Mute global",
-    unmuteAll: "Quitar mute global",
-    stopAll: "Silencio",
-    play: "▶ Reproducir",
-    pause: "⏸ Pausar",
-    limit: "Límite de 10 samplers alcanzado.",
-    uploadLabel: "Sube tu sample (WAV/OGG/MP3)",
-    noSample: "Sin sample",
-    loaded: "Cargado",
-    libPlaceholder: "-- Selecciona un sampler --",
-    libLabel: "Elegir de la biblioteca",
-    nameLabel: "Nombre",
-    volume: "Volumen",
-    tempoTrack: "Tempo pista",
-    loopStart: "Inicio (s)",
-    loopEnd: "Fin (s)",
-    waveHint: "Haz clic o arrastra para ajustar inicio/fin",
-    statusError: "Error al cargar el sample",
-    promptMix: "Nombre para esta mezcla:"
-  },
-  ca: {
-    heroTitle: "Construeix la teua banda en segons",
-    heroDesc: "Comença amb ranures buides, puja els teus sons i activa'ls junts.",
-    tempoLabel: "Tempo global (%)",
-    record: "⏺ Grava",
-    recordStop: "⏹ Para",
-    recordStatusRecording: "Gravant mescla...",
-    recordStatusGenerating: "Generant fitxer...",
-    recordStatusReady: "Fitxer llest",
-    recordStatusError: "No s'ha pogut gravar",
-    collapse: "Contreu",
-    expand: "Expandeix",
-    bankTitle: "Banc de samplers",
-    samplerHint: "Comença amb 4 samplers buits i afegeix-ne fins a 6 més quan et facen falta.",
-    addSampler: "+ Afegeix sampler",
-    mixPlaceholder: "Carrega mescla...",
-    saveMix: "Guarda mescla",
-    slotsSummary: "{used} slots creats · {free} lliures per afegir",
-    muteAll: "Mute global",
-    unmuteAll: "Lleva mute global",
-    stopAll: "Silenci",
-    play: "▶ Reproduir",
-    pause: "⏸ Pausa",
-    limit: "Límit de 10 samplers assolit.",
-    uploadLabel: "Puja el teu sample (WAV/OGG/MP3)",
-    noSample: "Sense sample",
-    loaded: "Carregat",
-    libPlaceholder: "-- Selecciona un sampler --",
-    libLabel: "Tria de la biblioteca",
-    nameLabel: "Nom",
-    volume: "Volum",
-    tempoTrack: "Tempo pista",
-    loopStart: "Inici (s)",
-    loopEnd: "Final (s)",
-    waveHint: "Fes clic o arrossega per ajustar inici/final",
-    statusError: "Error en carregar el sample",
-    promptMix: "Nom per a esta mescla:"
-  },
-  en: {
-    heroTitle: "Build your band in seconds",
-    heroDesc: "Start with empty slots, drop your sounds, and trigger them together.",
-    tempoLabel: "Global tempo (%)",
-    record: "⏺ Record",
-    recordStop: "⏹ Stop",
-    recordStatusRecording: "Recording mix...",
-    recordStatusGenerating: "Rendering file...",
-    recordStatusReady: "File ready",
-    recordStatusError: "Could not record",
-    collapse: "Collapse",
-    expand: "Expand",
-    bankTitle: "Sampler bank",
-    samplerHint: "Start with 4 empty samplers and add up to 6 more if you need them.",
-    addSampler: "+ Add sampler",
-    mixPlaceholder: "Load mix...",
-    saveMix: "Save mix",
-    slotsSummary: "{used} slots created · {free} free to add",
-    muteAll: "Global mute",
-    unmuteAll: "Unmute all",
-    stopAll: "Stop",
-    play: "▶ Play",
-    pause: "⏸ Pause",
-    limit: "Limit of 10 samplers reached.",
-    uploadLabel: "Upload your sample (WAV/OGG/MP3)",
-    noSample: "No sample",
-    loaded: "Loaded",
-    libPlaceholder: "-- Select a sampler --",
-    libLabel: "Choose from library",
-    nameLabel: "Name",
-    volume: "Volume",
-    tempoTrack: "Track tempo",
-    loopStart: "Start (s)",
-    loopEnd: "End (s)",
-    waveHint: "Click or drag to set start/end",
-    statusError: "Error loading sample",
-    promptMix: "Name this mix:"
-  }
-};
 
 class EduSamplerEngine {
   constructor() {
