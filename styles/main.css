@@ -94,6 +94,10 @@ header {
   color: var(--ink);
 }
 
+.lang-picker label {
+  font-size: 0.85rem;
+}
+
 .pill {
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--ink);
