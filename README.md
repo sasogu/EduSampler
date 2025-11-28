@@ -1,25 +1,25 @@
-# EduSampler (prototipo)
+# EduSampler
 
-PWA tipo Incredibox para clase de música: activa personajes, mezcla capas generadas con Web Audio y funciona offline.
+PWA sencilla para jugar con samplers: sube tus audios, recórtalos visualmente, ajusta tempo por pista o global y guarda mezclas. Funciona offline.
 
 ## Ejecutar en local
 
-1. Entra a la carpeta del proyecto: `cd /Users/sasogu/web/EdoBox`
-2. Sirve los archivos estáticos (ejemplos):
-   - Python 3: `python3 -m http.server 4173`
-   - Node (si lo tienes): `npx http-server -p 4173`
-3. Abre <http://localhost:4173> en el navegador. Toca **Iniciar audio** para habilitar el contexto de audio (requisito de los navegadores).
-4. Instala como PWA con el botón **Instalar PWA** (Chrome/Edge) y úsalo offline.
+1) `cd /Users/sasogu/web/EduSampler`  
+2) Sirve archivos estáticos, por ejemplo:  
+   - `python3 -m http.server 4173`  
+   - o `npx http-server -p 4173`  
+3) Abre <http://localhost:4173> en el navegador y pulsa **Iniciar audio** para habilitar Web Audio.  
+4) Opcional: instala como PWA con **Instalar PWA** (Chrome/Edge).
 
-## Qué incluye
+## Funcionalidades principales
 
-- Motor Web Audio con kits precargados, patrones de 16 pasos, solo/mute y control de tempo.
-- UI responsive con tarjetas de personajes, colores vivos y controles básicos.
-- PWA lista: `manifest.webmanifest` e `service-worker.js` cacheando los assets.
-- Hasta 10 samplers personalizados: añade tarjeta, sube WAV/OGG/MP3 y se integra al motor.
+- 5 slots de sampler por defecto + hasta 5 extra.
+- Subida de WAV/OGG/MP3; recorte gráfico del loop con forma de onda.
+- Tempo por pista (slider %) y tempo global (porcentaje) independientes.
+- Modo Solo/Mute por pista, volumen, nombres personalizados.
+- Guardado de samples (IndexedDB) y metadatos/mezclas (localStorage). Botón **Guardar mezcla** para almacenar y selector para recargar configuraciones.
+- PWA con `service-worker.js` cacheando assets; indicador de versión del SW en el pie.
 
-## Próximos pasos sugeridos
+## About
 
-- Añadir samples reales (beatbox, voces de alumnos) en `/assets` y asignarlos a cada pista.
-- Guardar mezclas favoritas en `localStorage` y compartir códigos cortos.
-- Modo “escena” para automatizar mute/solo en secciones (verso, coro).
+licencia MIT. Los sonidos incluidos provienen de Pixabay.

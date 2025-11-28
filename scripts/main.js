@@ -3,25 +3,172 @@ const ui = {
   playToggle: document.getElementById("playToggle"),
   tempo: document.getElementById("tempo"),
   tempoValue: document.getElementById("tempoValue"),
-  startAudio: document.getElementById("startAudio"),
   installPwa: document.getElementById("installPwa"),
   muteAll: document.getElementById("muteAll"),
   stopAll: document.getElementById("stopAll"),
   addSampler: document.getElementById("addSampler"),
   slotSummary: document.getElementById("slotSummary"),
-  swVersion: document.getElementById("swVersion")
+  swVersion: document.getElementById("swVersion"),
+  mixSelect: document.getElementById("mixSelect"),
+  saveMix: document.getElementById("saveMix"),
+  recordMix: document.getElementById("recordMix"),
+  recordStatus: document.getElementById("recordStatus"),
+  collapseCards: document.getElementById("collapseCards")
 };
 
-const BASE_SLOTS = 5;
+const BASE_SLOTS = 4;
 const MAX_SLOTS = 10;
 const DEFAULT_TEMPO = 96;
 const DEFAULT_LOOP_BARS = 4;
 let globalLoopBars = DEFAULT_LOOP_BARS;
+const DEFAULT_GLOBAL_FACTOR = 1;
 const DB_NAME = "edusampler-db";
 const DB_VERSION = 1;
 const DB_STORE = "samples";
 let db = null;
+let globalTempoFactor = DEFAULT_GLOBAL_FACTOR;
+let savedMixes = [];
 let sampleTracks = [];
+let cardsCollapsed = false;
+let currentLang = "es";
+const librarySamples = [
+  { file: "samplers/applause-crowd.mp3", label: "Aplauso" },
+  { file: "samplers/amen-break-no-copyright-remake-120bpm-25924.mp3", label: "Amen break 120" },
+  { file: "samplers/beat-addictive-percussive-rhythm-loop-120bpm-438642.mp3", label: "Perc loop 120" },
+  { file: "samplers/bells-melody-loop-266598.mp3", label: "Bells melody" },
+  { file: "samplers/break-drum-loop-132276.mp3", label: "Break drum" },
+  { file: "samplers/cs-fx-up-2-d-128bpm.mp3", label: "FX subida" },
+  { file: "samplers/cs-hihat-loop-01-128bpm.mp3", label: "Hi-hat loop 01" },
+  { file: "samplers/cs-hithat-loop-03-128bpm.mp3", label: "Hi-hat loop 03" },
+  { file: "samplers/cs-kick-04-d-128bpm.mp3", label: "Kick 04" },
+  { file: "samplers/emotional-guitar-loop-02-301396.mp3", label: "Guitarra emocional" },
+  { file: "samplers/foo-fighters-type-guitar-loop-2-246591.mp3", label: "Guitarra Foo Fighters" },
+  { file: "samplers/happy-new-year.mp3", label: "Happy New Year" },
+  { file: "samplers/hard-rock-guitar-loop-1-289431.mp3", label: "Guitarra hard rock" },
+  { file: "samplers/hip-hop-drum-loop-main-beat-102-bpm-265600.mp3", label: "Hip-hop drum 102" },
+  { file: "samplers/juice-wrld-x-marshmello-guitar-loop-246372.mp3", label: "Guitarra Juice WRLD" },
+  { file: "samplers/nostalgia-melody-loop-v1-264546.mp3", label: "Nostalgia melody" },
+  { file: "samplers/pluck-loop-02-gminor-126bpm-405157.mp3", label: "Pluck 126 Gm" },
+  { file: "samplers/santaclaus_hohoho.mp3", label: "Santa Ho Ho Ho" },
+  { file: "samplers/typical-trap-loop-140bpm-129880.mp3", label: "Trap loop 140" }
+];
+
+const translations = {
+  es: {
+    heroTitle: "Construeix la teua banda en segons",
+    heroDesc: "Empieza con slots vacíos, sube tus sonidos y actívalos juntos.",
+    tempoLabel: "Tempo global (%)",
+    record: "⏺ Grabar",
+    recordStop: "⏹ Parar",
+    recordStatusRecording: "Grabando mezcla...",
+    recordStatusGenerating: "Generando archivo...",
+    recordStatusReady: "Archivo listo",
+    recordStatusError: "No se pudo grabar",
+    collapse: "Contraer",
+    expand: "Expandir",
+    bankTitle: "Banco de samplers",
+    samplerHint: "Arranca con 4 samplers vacíos y añade hasta 6 más cuando te queden cortos.",
+    addSampler: "+ Añadir sampler",
+    mixPlaceholder: "Cargar mezcla...",
+    saveMix: "Guardar mezcla",
+    slotsSummary: "{used} slots creados · {free} libres para añadir",
+    muteAll: "Mute global",
+    unmuteAll: "Quitar mute global",
+    stopAll: "Silencio",
+    play: "▶ Reproducir",
+    pause: "⏸ Pausar",
+    limit: "Límite de 10 samplers alcanzado.",
+    uploadLabel: "Sube tu sample (WAV/OGG/MP3)",
+    noSample: "Sin sample",
+    loaded: "Cargado",
+    libPlaceholder: "-- Selecciona un sampler --",
+    libLabel: "Elegir de la biblioteca",
+    nameLabel: "Nombre",
+    volume: "Volumen",
+    tempoTrack: "Tempo pista",
+    loopStart: "Inicio (s)",
+    loopEnd: "Fin (s)",
+    waveHint: "Haz clic o arrastra para ajustar inicio/fin",
+    statusError: "Error al cargar el sample",
+    promptMix: "Nombre para esta mezcla:"
+  },
+  ca: {
+    heroTitle: "Construeix la teua banda en segons",
+    heroDesc: "Comença amb ranures buides, puja els teus sons i activa'ls junts.",
+    tempoLabel: "Tempo global (%)",
+    record: "⏺ Grava",
+    recordStop: "⏹ Para",
+    recordStatusRecording: "Gravant mescla...",
+    recordStatusGenerating: "Generant fitxer...",
+    recordStatusReady: "Fitxer llest",
+    recordStatusError: "No s'ha pogut gravar",
+    collapse: "Contreu",
+    expand: "Expandeix",
+    bankTitle: "Banc de samplers",
+    samplerHint: "Comença amb 4 samplers buits i afegeix-ne fins a 6 més quan et facen falta.",
+    addSampler: "+ Afegeix sampler",
+    mixPlaceholder: "Carrega mescla...",
+    saveMix: "Guarda mescla",
+    slotsSummary: "{used} slots creats · {free} lliures per afegir",
+    muteAll: "Mute global",
+    unmuteAll: "Lleva mute global",
+    stopAll: "Silenci",
+    play: "▶ Reproduir",
+    pause: "⏸ Pausa",
+    limit: "Límit de 10 samplers assolit.",
+    uploadLabel: "Puja el teu sample (WAV/OGG/MP3)",
+    noSample: "Sense sample",
+    loaded: "Carregat",
+    libPlaceholder: "-- Selecciona un sampler --",
+    libLabel: "Tria de la biblioteca",
+    nameLabel: "Nom",
+    volume: "Volum",
+    tempoTrack: "Tempo pista",
+    loopStart: "Inici (s)",
+    loopEnd: "Final (s)",
+    waveHint: "Fes clic o arrossega per ajustar inici/final",
+    statusError: "Error en carregar el sample",
+    promptMix: "Nom per a esta mescla:"
+  },
+  en: {
+    heroTitle: "Build your band in seconds",
+    heroDesc: "Start with empty slots, drop your sounds, and trigger them together.",
+    tempoLabel: "Global tempo (%)",
+    record: "⏺ Record",
+    recordStop: "⏹ Stop",
+    recordStatusRecording: "Recording mix...",
+    recordStatusGenerating: "Rendering file...",
+    recordStatusReady: "File ready",
+    recordStatusError: "Could not record",
+    collapse: "Collapse",
+    expand: "Expand",
+    bankTitle: "Sampler bank",
+    samplerHint: "Start with 4 empty samplers and add up to 6 more if you need them.",
+    addSampler: "+ Add sampler",
+    mixPlaceholder: "Load mix...",
+    saveMix: "Save mix",
+    slotsSummary: "{used} slots created · {free} free to add",
+    muteAll: "Global mute",
+    unmuteAll: "Unmute all",
+    stopAll: "Stop",
+    play: "▶ Play",
+    pause: "⏸ Pause",
+    limit: "Limit of 10 samplers reached.",
+    uploadLabel: "Upload your sample (WAV/OGG/MP3)",
+    noSample: "No sample",
+    loaded: "Loaded",
+    libPlaceholder: "-- Select a sampler --",
+    libLabel: "Choose from library",
+    nameLabel: "Name",
+    volume: "Volume",
+    tempoTrack: "Track tempo",
+    loopStart: "Start (s)",
+    loopEnd: "End (s)",
+    waveHint: "Click or drag to set start/end",
+    statusError: "Error loading sample",
+    promptMix: "Name this mix:"
+  }
+};
 
 class EduSamplerEngine {
   constructor() {
@@ -39,6 +186,11 @@ class EduSamplerEngine {
     this.nextBarTime = null;
     this.barInLoop = 0;
     this.loopBars = DEFAULT_LOOP_BARS;
+    this.globalTempoFactor = DEFAULT_GLOBAL_FACTOR;
+    this.recorderDest = null;
+    this.recorder = null;
+    this.recording = false;
+    this.recordedChunks = [];
   }
 
   async ensureContext() {
@@ -76,11 +228,16 @@ class EduSamplerEngine {
       track.loopStart = track.loopStart ?? 0;
       track.loopEnd = track.loopEnd ?? null;
       track.waveform = track.waveform ?? null;
+      track.tempoFactor = Number.isFinite(track.tempoFactor) ? track.tempoFactor : 1;
+      track.collapsed = Boolean(track.collapsed);
       if (!track.gainNode && this.ctx) {
         track.gainNode = this.createTrackGain(track.gain);
       }
       return track;
     });
+    // reconstruimos el set de solo según el estado actual de las pistas
+    this.soloing = new Set(this.tracks.filter((t) => t.solo).map((t) => t.id));
+    this.applySoloState();
     this.step = 0;
   }
 
@@ -101,6 +258,10 @@ class EduSamplerEngine {
 
   setLoopBars(bars) {
     this.loopBars = Math.max(1, Math.round(bars || DEFAULT_LOOP_BARS));
+  }
+
+  setGlobalTempoFactor(factor) {
+    this.globalTempoFactor = factor || DEFAULT_GLOBAL_FACTOR;
   }
 
   toggleTrack(id) {
@@ -144,6 +305,7 @@ class EduSamplerEngine {
       this.tracks.forEach((tr) => (tr.solo = false));
       this.soloing.clear();
     }
+    this.applySoloState();
   }
 
   setTrackSolo(id, solo) {
@@ -157,6 +319,7 @@ class EduSamplerEngine {
       this.tracks.forEach((tr) => (tr.solo = false));
       this.soloing.clear();
     }
+    this.applySoloState();
   }
 
   muteAll(isMuted) {
@@ -212,6 +375,7 @@ class EduSamplerEngine {
   trigger(track, when, stepIndex, barLength) {
     const gain = track.gainNode || this.createTrackGain(track.gain);
     track.gainNode = gain;
+    markTrackPlaying(track.id);
     switch (track.instrument) {
       case "kick":
         this.playKick(when, gain);
@@ -384,8 +548,8 @@ class EduSamplerEngine {
     const loopEndRaw = track.loopEnd ?? naturalDuration;
     const loopEnd = Math.min(Math.max(loopEndRaw, loopStart + 0.01), naturalDuration);
     const playDuration = loopEnd - loopStart;
-    const targetDuration = barLength * this.loopBars;
-    const playbackRate = playDuration > 0 && targetDuration > 0 ? playDuration / targetDuration : 1;
+    const baseRate = 1; // mantener velocidad original del sample
+    const playbackRate = baseRate * (track.tempoFactor || 1) * (this.globalTempoFactor || 1);
 
     // Si sigue sonando, dejamos que continúe (looping continuo)
     if (track.isSamplePlaying && now < (track.samplePlayingUntil || 0)) {
@@ -432,6 +596,54 @@ class EduSamplerEngine {
     track.isSamplePlaying = false;
     track.samplePlayingUntil = 0;
   }
+
+  applySoloState() {
+    const hasSolo = this.soloing.size > 0;
+    if (!hasSolo) return;
+    this.tracks.forEach((tr) => {
+      if (!tr.solo) {
+        this.stopTrackPlayback(tr);
+      }
+    });
+  }
+
+  ensureRecorderDestination() {
+    if (!this.ctx) return null;
+    if (!this.recorderDest) {
+      this.recorderDest = this.ctx.createMediaStreamDestination();
+      this.master.connect(this.recorderDest);
+    }
+    return this.recorderDest;
+  }
+
+  startRecording() {
+    if (!this.ctx) return null;
+    const dest = this.ensureRecorderDestination();
+    if (!dest) return null;
+    this.recordedChunks = [];
+    this.recorder = new MediaRecorder(dest.stream);
+    this.recording = true;
+    this.recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        this.recordedChunks.push(e.data);
+      }
+    };
+    this.recorder.start();
+    return true;
+  }
+
+  stopRecording() {
+    return new Promise((resolve) => {
+      if (!this.recorder || !this.recording) return resolve(null);
+      this.recorder.onstop = () => {
+        const blob = new Blob(this.recordedChunks, { type: "audio/webm" });
+        this.recording = false;
+        this.recorder = null;
+        resolve(blob);
+      };
+      this.recorder.stop();
+    });
+  }
 }
 
 const engine = new EduSamplerEngine();
@@ -458,7 +670,9 @@ function createEmptyTrack(idx) {
     loopStart: 0,
     loopEnd: null,
     waveform: null,
-    displayName: `Sampler ${idx}`
+    displayName: `Sampler ${idx}`,
+    tempoFactor: 1,
+    collapsed: false
   };
 }
 
@@ -624,6 +838,15 @@ function drawAllWaveforms() {
   });
 }
 
+function markTrackPlaying(trackId) {
+  const card = ui.trackGrid.querySelector(`.card[data-id="${trackId}"]`);
+  if (!card) return;
+  card.classList.add("playing");
+  setTimeout(() => {
+    card.classList.remove("playing");
+  }, 200);
+}
+
 // ---------- Persistencia (IndexedDB + localStorage) ----------
 async function initDb() {
   return new Promise((resolve, reject) => {
@@ -643,15 +866,94 @@ async function initDb() {
 }
 
 function saveStateMeta() {
-  const meta = sampleTracks.map(({ id, displayName, fileName, loopStart, loopEnd, enabled }) => ({
+  const meta = sampleTracks.map(({ id, displayName, fileName, loopStart, loopEnd, enabled, tempoFactor, collapsed }) => ({
     id,
     displayName,
     fileName,
     loopStart,
     loopEnd,
-    enabled
+    enabled,
+    tempoFactor: tempoFactor ?? 1,
+    collapsed: Boolean(collapsed)
   }));
   localStorage.setItem("edusampler-meta", JSON.stringify(meta));
+}
+
+function loadMixesFromStorage() {
+  try {
+    const raw = localStorage.getItem("edusampler-mixes");
+    savedMixes = raw ? JSON.parse(raw) : [];
+  } catch (err) {
+    savedMixes = [];
+  }
+}
+
+function persistMixes() {
+  localStorage.setItem("edusampler-mixes", JSON.stringify(savedMixes));
+}
+
+function saveCurrentMix(name) {
+  const meta = sampleTracks.map((t) => ({
+    id: t.id,
+    displayName: t.displayName,
+    fileName: t.fileName,
+    loopStart: t.loopStart,
+    loopEnd: t.loopEnd,
+    enabled: t.enabled,
+    tempoFactor: t.tempoFactor ?? 1,
+    collapsed: Boolean(t.collapsed)
+  }));
+  const mix = {
+    id: `${Date.now()}`,
+    name: name || "Mezcla",
+    date: Date.now(),
+    globalTempoFactor: globalTempoFactor,
+    tracks: meta
+  };
+  savedMixes.unshift(mix);
+  savedMixes = savedMixes.slice(0, 10); // mantener las 10 últimas
+  persistMixes();
+  renderMixSelect();
+  ui.mixSelect.value = mix.id;
+}
+
+async function loadMixById(id) {
+  const mix = savedMixes.find((m) => m.id === id);
+  if (!mix) return;
+  globalTempoFactor = mix.globalTempoFactor || DEFAULT_GLOBAL_FACTOR;
+  localStorage.setItem("edusampler-global-tempo", String(globalTempoFactor));
+  ui.tempo.value = Math.round(globalTempoFactor * 100);
+  ui.tempoValue.textContent = `${Math.round(globalTempoFactor * 100)}%`;
+
+  for (const m of mix.tracks) {
+    let track = sampleTracks.find((t) => t.id === m.id);
+    if (!track) {
+      if (sampleTracks.length >= MAX_SLOTS) break;
+      track = createEmptyTrack(sampleTracks.length + 1);
+      track.id = m.id;
+      sampleTracks.push(track);
+    }
+    track.displayName = m.displayName || track.displayName;
+    track.fileName = m.fileName || track.fileName;
+    track.loopStart = m.loopStart ?? track.loopStart;
+    track.loopEnd = m.loopEnd ?? track.loopEnd;
+    track.enabled = m.enabled ?? track.enabled;
+    track.tempoFactor = Number.isFinite(m.tempoFactor) ? m.tempoFactor : track.tempoFactor;
+    // recuperar audio si existe en DB
+    if (!track.sampleBuffer) {
+      const recs = await readAllSamples();
+      const rec = recs.find((r) => r.id === track.id);
+      if (rec?.data) {
+        const audioBuffer = await decodeArrayBuffer(rec.data);
+        track.sampleBuffer = audioBuffer;
+        track.waveform = buildWaveform(audioBuffer);
+      }
+    }
+  }
+  renderTracks();
+  drawAllWaveforms();
+  renderSlotSummary();
+  syncEngineTracks();
 }
 
 async function saveSampleToDb(track, file) {
@@ -694,6 +996,8 @@ async function restoreSamplesFromDb() {
       track.loopStart = m.loopStart ?? track.loopStart;
       track.loopEnd = m.loopEnd ?? track.loopEnd;
       track.enabled = m.enabled ?? track.enabled;
+      track.tempoFactor = Number.isFinite(m.tempoFactor) ? m.tempoFactor : track.tempoFactor;
+      track.collapsed = Boolean(m.collapsed);
       const rec = records.find((r) => r.id === m.id);
       if (rec?.data) {
         const audioBuffer = await decodeArrayBuffer(rec.data);
@@ -718,8 +1022,8 @@ function readAllSamples() {
 }
 
 async function decodeArrayBuffer(buffer) {
-  await startAudio();
-  return engine.ctx.decodeAudioData(buffer.slice(0));
+  const ctx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 44100, 44100);
+  return ctx.decodeAudioData(buffer.slice(0));
 }
 
 function renderTracks() {
@@ -729,44 +1033,61 @@ function renderTracks() {
     const toggleClass = track.enabled ? "active" : "";
     const soloClass = track.solo ? "active" : "";
     const card = document.createElement("article");
-    card.className = "card";
+    const collapsed = cardsCollapsed || track.collapsed;
+    card.className = `card${collapsed ? " collapsed" : ""}`;
     card.dataset.id = track.id;
     card.innerHTML = `
       <div class="card-header">
         <div class="avatar">${track.emoji}</div>
         <div>
-          <div class="name">${track.name}</div>
+          <div class="name">${track.displayName || track.name}</div>
           <div class="tags">${tags.map((t) => `<span class="tag">${t}</span>`).join("")}</div>
         </div>
       </div>
-      <div class="mini name-edit">
-        <label class="muted" for="name-${track.id}">Nombre</label>
-        <input id="name-${track.id}" type="text" maxlength="40" value="${track.displayName || track.name}">
+      <div class="name-edit-inline" data-inline-name>
+        <input id="name-${track.id}" type="text" maxlength="40" value="${track.displayName || track.name}" aria-label="Nombre de la pista">
       </div>
       <div class="actions">
-        <button class="toggle ${toggleClass}" data-action="toggle">Activar</button>
-        <button class="toggle ${soloClass}" data-action="solo">Solo</button>
+        <button class="toggle ${toggleClass}" data-action="toggle">${t("btnActivate")}</button>
+        <button class="toggle ${soloClass}" data-action="solo">${t("btnSolo")}</button>
+        <button class="toggle" data-action="collapse">${collapsed ? t("expand") : t("collapse")}</button>
       </div>
       <div class="mini">
-        <span class="muted">Volumen</span>
+        <span class="muted">${t("volume")}</span>
         <div class="gain">
           <input type="range" min="0" max="1" step="0.01" value="${track.gain}">
+        </div>
+      </div>
+      <div class="mini">
+        <span class="muted">${t("tempoTrack")}</span>
+        <div class="gain">
+          <input type="range" min="0.5" max="1.5" step="0.05" value="${track.tempoFactor || 1}" data-loop="tempo">
+          <span class="muted">${Math.round((track.tempoFactor || 1) * 100)}%</span>
         </div>
       </div>
       ${
         track.instrument === "sample"
           ? `<label class="upload">
-              <span class="muted">Sube tu sample (WAV/OGG/MP3)</span>
+              <span class="muted">${t("uploadLabel")}</span>
               <input type="file" accept="audio/*" data-upload="sample">
-              <span class="upload-status muted">${track.fileName ? `Cargado: ${track.fileName}` : "Sin sample"}</span>
+              <span class="upload-status muted">${track.fileName ? `${t("loaded")}: ${track.fileName}` : t("noSample")}</span>
              </label>
+             <div class="mini library-picker">
+               <label class="muted" for="lib-${track.id}">${t("libLabel")}</label>
+               <select id="lib-${track.id}" data-library="sample">
+                 <option value="">${t("libPlaceholder")}</option>
+                 ${librarySamples
+                   .map((l) => `<option value="${l.file}">${l.label}</option>`)
+                   .join("")}
+               </select>
+             </div>
              <div class="mini loop-editor">
                <div class="loop-field">
-                 <label class="muted" for="loop-start-${track.id}">Inicio (s)</label>
+                 <label class="muted" for="loop-start-${track.id}">${t("loopStart")}</label>
                  <input id="loop-start-${track.id}" type="number" min="0" step="0.1" value="${track.loopStart ?? 0}" data-loop="start">
                </div>
                <div class="loop-field">
-                 <label class="muted" for="loop-end-${track.id}">Fin (s)</label>
+                 <label class="muted" for="loop-end-${track.id}">${t("loopEnd")}</label>
                  <input id="loop-end-${track.id}" type="number" min="0" step="0.1" value="${track.loopEnd ?? ""}" placeholder="${track.sampleBuffer ? track.sampleBuffer.duration.toFixed(1) : ""}" data-loop="end">
                </div>
              </div>
@@ -774,7 +1095,7 @@ function renderTracks() {
                track.sampleBuffer
                  ? `<div class="wave-container" data-wave="${track.id}">
                       <canvas data-wave-canvas="${track.id}" width="600" height="110"></canvas>
-                      <div class="wave-meta muted">Haz clic o arrastra para ajustar inicio/fin</div>
+                      <div class="wave-meta muted">${t("waveHint")}</div>
                     </div>`
                  : ""
              }`
@@ -812,6 +1133,11 @@ function attachCardEvents() {
         btn.classList.toggle("active", bTrack?.solo);
       });
     }
+    if (action === "collapse") {
+      track.collapsed = !track.collapsed;
+      card.classList.toggle("collapsed", track.collapsed || cardsCollapsed);
+      ev.target.textContent = track.collapsed || cardsCollapsed ? t("expand") : t("collapse");
+    }
   });
 
   ui.trackGrid.addEventListener("input", (ev) => {
@@ -822,8 +1148,13 @@ function attachCardEvents() {
     const track = sampleTracks.find((t) => t.id === id);
     if (!track) return;
     const value = Number(ev.target.value);
-    track.gain = value;
-    engine.setGain(id, value);
+    if (ev.target.dataset.loop === "tempo") {
+      track.tempoFactor = value;
+      ev.target.nextElementSibling.textContent = `${Math.round(value * 100)}%`;
+    } else {
+      track.gain = value;
+      engine.setGain(id, value);
+    }
   });
 
   ui.trackGrid.addEventListener("input", (ev) => {
@@ -834,6 +1165,9 @@ function attachCardEvents() {
     const track = sampleTracks.find((t) => t.id === id);
     if (!track) return;
     track.displayName = ev.target.value.slice(0, 40);
+    const nameEl = card.querySelector(".name");
+    if (nameEl) nameEl.textContent = track.displayName || track.name;
+    saveStateMeta();
   });
 
   ui.trackGrid.addEventListener("change", async (ev) => {
@@ -845,6 +1179,19 @@ function attachCardEvents() {
     await loadUserSample(file, id, card);
     renderTracks();
     drawAllWaveforms();
+    renderMixSelect();
+  });
+
+  ui.trackGrid.addEventListener("change", async (ev) => {
+    if (ev.target.dataset.library !== "sample") return;
+    const card = ev.target.closest(".card");
+    const id = card?.dataset.id;
+    const url = ev.target.value;
+    if (!id || !url) return;
+    await loadLibrarySample(url, id, card);
+    renderTracks();
+    drawAllWaveforms();
+    renderMixSelect();
   });
 
   ui.trackGrid.addEventListener("change", (ev) => {
@@ -901,13 +1248,17 @@ async function init() {
   ensureBaseSlots();
   await initDb();
   await restoreSamplesFromDb();
-  ui.tempo.value = DEFAULT_TEMPO;
-  ui.tempoValue.textContent = `${DEFAULT_TEMPO} bpm`;
+  loadMixesFromStorage();
+  const savedGlobal = Number(localStorage.getItem("edusampler-global-tempo")) || DEFAULT_GLOBAL_FACTOR;
+  globalTempoFactor = savedGlobal;
+  ui.tempo.value = Math.round(globalTempoFactor * 100);
+  ui.tempoValue.textContent = `${Math.round(globalTempoFactor * 100)}%`;
   renderTracks();
   drawAllWaveforms();
   renderSlotSummary();
   syncEngineTracks();
   attachCardEvents();
+  renderMixSelect();
   updateSwVersionLabel("SW: esperando...");
   await setupServiceWorker();
   await displaySwVersion();
@@ -916,6 +1267,7 @@ async function init() {
 async function startAudio() {
   await engine.ensureContext();
   engine.setTracks(sampleTracks);
+  engine.setGlobalTempoFactor(globalTempoFactor);
 }
 
 function addCustomTrack() {
@@ -963,11 +1315,59 @@ async function loadUserSample(file, trackId, card) {
   }
 }
 
+async function loadLibrarySample(url, trackId, card) {
+  try {
+    await startAudio();
+    const response = await fetch(url);
+    const blob = await response.blob();
+    const fileName = url.split("/").pop() || "library-sample";
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioBuffer = await engine.ctx.decodeAudioData(arrayBuffer.slice(0));
+    engine.setSample(trackId, audioBuffer);
+    const target = sampleTracks.find((t) => t.id === trackId);
+    if (target) {
+      target.sampleBuffer = audioBuffer;
+      target.fileName = fileName;
+      target.tags = ["listo para sonar"];
+      target.loopStart = 0;
+      target.loopEnd = audioBuffer.duration;
+      target.waveform = buildWaveform(audioBuffer);
+      const pseudoFile = new File([blob], fileName, { type: blob.type });
+      await saveSampleToDb(target, pseudoFile);
+    }
+    recomputeLoopBars();
+    saveStateMeta();
+    const status = card.querySelector(".upload-status");
+    if (status) {
+      status.textContent = `Cargado: ${fileName}`;
+    }
+  } catch (err) {
+    console.error("No se pudo cargar el sample de biblioteca", err);
+    const status = card.querySelector(".upload-status");
+    if (status) status.textContent = "Error al cargar el sample";
+  }
+}
+
 function renderSlotSummary() {
   if (!ui.slotSummary) return;
   const libres = MAX_SLOTS - sampleTracks.length;
-  ui.slotSummary.textContent = `${sampleTracks.length} slots creados · ${libres} libres para añadir`;
+  ui.slotSummary.textContent = t("slotsSummary", { used: sampleTracks.length, free: libres });
   saveStateMeta();
+}
+
+function renderMixSelect() {
+  if (!ui.mixSelect) return;
+  ui.mixSelect.innerHTML = "";
+  const placeholder = document.createElement("option");
+  placeholder.value = "";
+  placeholder.textContent = "Cargar mezcla...";
+  ui.mixSelect.appendChild(placeholder);
+  savedMixes.forEach((mix) => {
+    const opt = document.createElement("option");
+    opt.value = mix.id;
+    opt.textContent = `${mix.name} (${new Date(mix.date).toLocaleString()})`;
+    ui.mixSelect.appendChild(opt);
+  });
 }
 
 async function setupServiceWorker() {
@@ -1038,18 +1438,15 @@ ui.playToggle.addEventListener("click", async () => {
   }
 });
 
-ui.startAudio.addEventListener("click", async () => {
-  await startAudio();
-  ui.startAudio.textContent = "Audio listo";
-});
-
 ui.tempo.addEventListener("input", (e) => {
   const bpm = Number(e.target.value);
-  ui.tempoValue.textContent = `${bpm} bpm`;
+  const factor = bpm / 100;
+  globalTempoFactor = factor;
+  ui.tempoValue.textContent = `${Math.round(factor * 100)}%`;
+  localStorage.setItem("edusampler-global-tempo", String(factor));
   if (engine.ctx) {
-    engine.setTempo(bpm);
+    engine.setGlobalTempoFactor(factor);
   }
-  recomputeLoopBars();
 });
 
 ui.muteAll.addEventListener("click", async () => {
@@ -1067,6 +1464,54 @@ ui.stopAll.addEventListener("click", () => {
 
 ui.addSampler.addEventListener("click", () => {
   addCustomTrack();
+});
+
+ui.recordMix?.addEventListener("click", async () => {
+  await startAudio();
+  if (!engine.recording) {
+    engine.startRecording();
+    if (ui.recordMix) ui.recordMix.textContent = "⏹ Parar";
+    if (ui.recordStatus) ui.recordStatus.textContent = "Grabando mezcla...";
+  } else {
+    const blob = await engine.stopRecording();
+    if (ui.recordMix) ui.recordMix.textContent = "⏺ Grabar";
+    if (ui.recordStatus) ui.recordStatus.textContent = "Generando archivo...";
+    if (blob) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `edusampler-mix-${Date.now()}.webm`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      if (ui.recordStatus) ui.recordStatus.textContent = "Archivo listo";
+    } else {
+      if (ui.recordStatus) ui.recordStatus.textContent = "No se pudo grabar";
+    }
+  }
+});
+
+ui.collapseCards?.addEventListener("click", () => {
+  cardsCollapsed = !cardsCollapsed;
+  ui.collapseCards.textContent = cardsCollapsed ? "Expandir" : "Contraer";
+  renderTracks();
+  // actualizar texto de los botones individuales acorde al estado global
+  ui.trackGrid.querySelectorAll('[data-action="collapse"]').forEach((btn) => {
+    btn.textContent = cardsCollapsed ? t("expand") : t("collapse");
+  });
+});
+
+ui.saveMix?.addEventListener("click", () => {
+  const name = prompt("Nombre para esta mezcla:");
+  if (!name) return;
+  saveCurrentMix(name.trim());
+});
+
+ui.mixSelect?.addEventListener("change", async (ev) => {
+  const id = ev.target.value;
+  if (!id) return;
+  await loadMixById(id);
 });
 
 init();
