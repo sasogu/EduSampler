@@ -31,6 +31,7 @@ let savedMixes = [];
 let sampleTracks = [];
 let cardsCollapsed = false;
 let currentLang = "es";
+const trackRecorders = {};
 const librarySamples = [
   { file: "samplers/applause-crowd.mp3", label: "Aplauso" },
   { file: "samplers/amen-break-no-copyright-remake-120bpm-25924.mp3", label: "Amen break 120" },
@@ -64,6 +65,9 @@ const translations = {
     recordStatusGenerating: "Generando archivo...",
     recordStatusReady: "Archivo listo",
     recordStatusError: "No se pudo grabar",
+    recStart: "Grabar",
+    recStop: "Parar",
+    recIdle: "Listo para grabar",
     collapse: "Contraer",
     expand: "Expandir",
     bankTitle: "Banco de samplers",
@@ -106,6 +110,12 @@ const translations = {
     recordStatusGenerating: "Generant fitxer...",
     recordStatusReady: "Fitxer llest",
     recordStatusError: "No s'ha pogut gravar",
+    recStart: "Grava",
+    recStop: "Para",
+    recIdle: "Llest per gravar",
+    recStart: "Grava",
+    recStop: "Para",
+    recIdle: "Llest per gravar",
     collapse: "Contreu",
     expand: "Expandeix",
     bankTitle: "Banc de samplers",
@@ -148,6 +158,12 @@ const translations = {
     recordStatusGenerating: "Rendering file...",
     recordStatusReady: "File ready",
     recordStatusError: "Could not record",
+    recStart: "Record",
+    recStop: "Stop",
+    recIdle: "Ready to record",
+    recStart: "Record",
+    recStop: "Stop",
+    recIdle: "Ready to record",
     collapse: "Collapse",
     expand: "Expand",
     bankTitle: "Sampler bank",
@@ -178,7 +194,7 @@ const translations = {
     btnActivate: "Activate",
     btnSolo: "Solo",
     tagEmpty: "empty slot",
-    
+    about: "EduSampler by Samuel Soriano. MIT license. Included sounds come from Pixabay."
   }
 };
 
@@ -878,6 +894,75 @@ function markTrackPlaying(trackId) {
   }, 200);
 }
 
+async function startTrackRecording(trackId, card) {
+  if (!navigator.mediaDevices?.getUserMedia) {
+    updateRecStatus(card, t("statusError"));
+    return;
+  }
+  if (trackRecorders[trackId]) {
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const recorder = new MediaRecorder(stream);
+    trackRecorders[trackId] = { recorder, chunks: [], stream };
+    recorder.ondataavailable = (e) => {
+      if (e.data.size > 0) trackRecorders[trackId].chunks.push(e.data);
+    };
+    recorder.start();
+    updateRecStatus(card, t("recordStatusRecording"));
+  } catch (err) {
+    console.error("No se pudo iniciar grabación", err);
+    updateRecStatus(card, t("recordStatusError"));
+  }
+}
+
+async function stopTrackRecording(trackId, card) {
+  const state = trackRecorders[trackId];
+  if (!state) return;
+  return new Promise((resolve) => {
+    state.recorder.onstop = async () => {
+      const blob = new Blob(state.chunks, { type: "audio/webm" });
+      state.stream.getTracks().forEach((tr) => tr.stop());
+      delete trackRecorders[trackId];
+      await loadRecordedSample(blob, trackId, card);
+      resolve();
+    };
+    state.recorder.stop();
+  });
+}
+
+async function loadRecordedSample(blob, trackId, card) {
+  try {
+    await startAudio();
+    const arrayBuffer = await blob.arrayBuffer();
+    const audioBuffer = await engine.ctx.decodeAudioData(arrayBuffer.slice(0));
+    engine.setSample(trackId, audioBuffer);
+    const target = sampleTracks.find((t) => t.id === trackId);
+    if (target) {
+      target.sampleBuffer = audioBuffer;
+      target.fileName = `grab-${trackId}.webm`;
+      target.tags = [t("loaded")];
+      target.loopStart = 0;
+      target.loopEnd = audioBuffer.duration;
+      target.waveform = buildWaveform(audioBuffer);
+      const file = new File([blob], target.fileName, { type: blob.type || "audio/webm" });
+      await saveSampleToDb(target, file);
+    }
+    updateRecStatus(card, t("recordStatusReady"));
+    renderTracks();
+    drawAllWaveforms();
+  } catch (err) {
+    console.error("No se pudo cargar grabación", err);
+    updateRecStatus(card, t("statusError"));
+  }
+}
+
+function updateRecStatus(card, text) {
+  const statusEl = card?.querySelector("[data-record-status]");
+  if (statusEl) statusEl.textContent = text;
+}
+
 function applyTranslations() {
   document.documentElement.lang = currentLang;
   document.querySelectorAll("[data-i18n]").forEach((el) => {
@@ -1115,6 +1200,13 @@ function renderTracks() {
           <span class="muted">${Math.round((track.tempoFactor || 1) * 100)}%</span>
         </div>
       </div>
+      <div class="mini recorder">
+        <div class="rec-controls">
+          <button class="toggle" data-action="rec-start">${t("recStart") || "Grabar"}</button>
+          <button class="toggle" data-action="rec-stop">${t("recStop") || "Parar"}</button>
+        </div>
+        <span class="muted record-status" data-record-status>${t("recIdle") || "Listo para grabar"}</span>
+      </div>
       ${
         track.instrument === "sample"
           ? `<label class="upload">
@@ -1187,6 +1279,12 @@ function attachCardEvents() {
       track.collapsed = !track.collapsed;
       card.classList.toggle("collapsed", track.collapsed || cardsCollapsed);
       ev.target.textContent = track.collapsed || cardsCollapsed ? t("expand") : t("collapse");
+    }
+    if (action === "rec-start") {
+      startTrackRecording(id, card);
+    }
+    if (action === "rec-stop") {
+      stopTrackRecording(id, card);
     }
   });
 
