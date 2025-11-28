@@ -31,6 +31,7 @@ let savedMixes = [];
 let sampleTracks = [];
 let cardsCollapsed = false;
 let currentLang = "es";
+let currentLang = "es";
 const librarySamples = [
   { file: "samplers/applause-crowd.mp3", label: "Aplauso" },
   { file: "samplers/amen-break-no-copyright-remake-120bpm-25924.mp3", label: "Amen break 120" },
@@ -52,6 +53,151 @@ const librarySamples = [
   { file: "samplers/santaclaus_hohoho.mp3", label: "Santa Ho Ho Ho" },
   { file: "samplers/typical-trap-loop-140bpm-129880.mp3", label: "Trap loop 140" }
 ];
+
+const translations = {
+  es: {
+    heroTitle: "Lanza tus samplers al instante",
+    heroDesc: "Empieza con ranuras vacías, sube tus sonidos y actívalos juntos.",
+    tempoLabel: "Tempo global (%)",
+    record: "⏺ Grabar",
+    recordStop: "⏹ Parar",
+    recordStatusRecording: "Grabando mezcla...",
+    recordStatusGenerating: "Generando archivo...",
+    recordStatusReady: "Archivo listo",
+    recordStatusError: "No se pudo grabar",
+    collapse: "Contraer",
+    expand: "Expandir",
+    bankTitle: "Banco de samplers",
+    samplerHint: "Arranca con 4 samplers vacíos y añade hasta 6 más cuando te queden cortos.",
+    addSampler: "+ Añadir sampler",
+    mixPlaceholder: "Cargar mezcla...",
+    saveMix: "Guardar mezcla",
+    slotsSummary: "{used} slots creados · {free} libres para añadir",
+    muteAll: "Mute global",
+    unmuteAll: "Quitar mute global",
+    stopAll: "Silencio",
+    play: "▶ Reproducir",
+    pause: "⏸ Pausar",
+    limit: "Límite de 10 samplers alcanzado.",
+    uploadLabel: "Sube tu sample (WAV/OGG/MP3)",
+    noSample: "Sin sample",
+    loaded: "Cargado",
+    libPlaceholder: "-- Selecciona un sampler --",
+    libLabel: "Elegir de la biblioteca",
+    nameLabel: "Nombre",
+    volume: "Volumen",
+    tempoTrack: "Tempo pista",
+    loopStart: "Inicio (s)",
+    loopEnd: "Fin (s)",
+    waveHint: "Haz clic o arrastra para ajustar inicio/fin",
+    statusError: "Error al cargar el sample",
+    promptMix: "Nombre para esta mezcla:",
+    btnActivate: "Activar",
+    btnSolo: "Solo",
+    tagEmpty: "slot libre",
+    about: "EduSampler por Samuel Soriano. Licencia MIT. Los sonidos incluidos provienen de Pixabay."
+  },
+  ca: {
+    heroTitle: "Llança els teus samplers al moment",
+    heroDesc: "Comença amb ranures buides, puja els teus sons i activa'ls junts.",
+    tempoLabel: "Tempo global (%)",
+    record: "⏺ Grava",
+    recordStop: "⏹ Para",
+    recordStatusRecording: "Gravant mescla...",
+    recordStatusGenerating: "Generant fitxer...",
+    recordStatusReady: "Fitxer llest",
+    recordStatusError: "No s'ha pogut gravar",
+    collapse: "Contreu",
+    expand: "Expandeix",
+    bankTitle: "Banc de samplers",
+    samplerHint: "Comença amb 4 samplers buits i afegeix-ne fins a 6 més quan et facen falta.",
+    addSampler: "+ Afig sampler",
+    mixPlaceholder: "Carrega mescla...",
+    saveMix: "Guarda mescla",
+    slotsSummary: "{used} slots creats · {free} lliures per afegir",
+    muteAll: "Mute global",
+    unmuteAll: "Lleva mute global",
+    stopAll: "Silenci",
+    play: "▶ Reproduir",
+    pause: "⏸ Pausa",
+    limit: "Límit de 10 samplers assolit.",
+    uploadLabel: "Puja el teu sample (WAV/OGG/MP3)",
+    noSample: "Sense sample",
+    loaded: "Carregat",
+    libPlaceholder: "-- Selecciona un sampler --",
+    libLabel: "Tria de la biblioteca",
+    nameLabel: "Nom",
+    volume: "Volum",
+    tempoTrack: "Tempo pista",
+    loopStart: "Inici (s)",
+    loopEnd: "Final (s)",
+    waveHint: "Fes clic o arrossega per ajustar inici/final",
+    statusError: "Error en carregar el sample",
+    promptMix: "Nom per a esta mescla:",
+    btnActivate: "Activa",
+    btnSolo: "Solo",
+    tagEmpty: "slot lliure",
+    about: "EduSampler per Samuel Soriano. Llicència MIT. Els sons inclosos provenen de Pixabay."
+  },
+  en: {
+    heroTitle: "Build your band in seconds",
+    heroDesc: "Start with empty slots, drop your sounds, and trigger them together.",
+    tempoLabel: "Global tempo (%)",
+    record: "⏺ Record",
+    recordStop: "⏹ Stop",
+    recordStatusRecording: "Recording mix...",
+    recordStatusGenerating: "Rendering file...",
+    recordStatusReady: "File ready",
+    recordStatusError: "Could not record",
+    collapse: "Collapse",
+    expand: "Expand",
+    bankTitle: "Sampler bank",
+    samplerHint: "Start with 4 empty samplers and add up to 6 more if you need them.",
+    addSampler: "+ Add sampler",
+    mixPlaceholder: "Load mix...",
+    saveMix: "Save mix",
+    slotsSummary: "{used} slots created · {free} free to add",
+    muteAll: "Global mute",
+    unmuteAll: "Unmute all",
+    stopAll: "Stop",
+    play: "▶ Play",
+    pause: "⏸ Pause",
+    limit: "Limit of 10 samplers reached.",
+    uploadLabel: "Upload your sample (WAV/OGG/MP3)",
+    noSample: "No sample",
+    loaded: "Loaded",
+    libPlaceholder: "-- Select a sampler --",
+    libLabel: "Choose from library",
+    nameLabel: "Name",
+    volume: "Volume",
+    tempoTrack: "Track tempo",
+    loopStart: "Start (s)",
+    loopEnd: "End (s)",
+    waveHint: "Click or drag to set start/end",
+    statusError: "Error loading sample",
+    promptMix: "Name this mix:",
+    btnActivate: "Activate",
+    btnSolo: "Solo",
+    tagEmpty: "empty slot",
+    about: "EduSampler by Samuel Soriano. MIT license. Included sounds come from Pixabay."
+  }
+};
+
+function detectLanguage() {
+  const nav = navigator.language || navigator.userLanguage || "es";
+  if (nav.startsWith("ca")) return "ca";
+  if (nav.startsWith("en")) return "en";
+  return "es";
+}
+
+function t(key, params = {}) {
+  const langPack = translations[currentLang] || translations.es;
+  let str = langPack[key] || translations.es[key] || key;
+  Object.entries(params).forEach(([k, v]) => {
+    str = str.replace(new RegExp(`{${k}}`, "g"), v);
+  });
+  return str;
+}
 
 const translations = {
   es: {
@@ -905,7 +1051,7 @@ function saveCurrentMix(name) {
   }));
   const mix = {
     id: `${Date.now()}`,
-    name: name || "Mezcla",
+    name: name || t("saveMix"),
     date: Date.now(),
     globalTempoFactor: globalTempoFactor,
     tracks: meta
@@ -1029,7 +1175,7 @@ async function decodeArrayBuffer(buffer) {
 function renderTracks() {
   ui.trackGrid.innerHTML = "";
   sampleTracks.forEach((track) => {
-    const tags = track.fileName ? ["listo para sonar"] : track.tags;
+    const tags = track.fileName ? [`${t("loaded")}: ${track.fileName}`] : [t("tagEmpty")];
     const toggleClass = track.enabled ? "active" : "";
     const soloClass = track.solo ? "active" : "";
     const card = document.createElement("article");
@@ -1045,7 +1191,7 @@ function renderTracks() {
         </div>
       </div>
       <div class="name-edit-inline" data-inline-name>
-        <input id="name-${track.id}" type="text" maxlength="40" value="${track.displayName || track.name}" aria-label="Nombre de la pista">
+        <input id="name-${track.id}" type="text" maxlength="40" value="${track.displayName || track.name}" aria-label="${t("nameLabel")}">
       </div>
       <div class="actions">
         <button class="toggle ${toggleClass}" data-action="toggle">${t("btnActivate")}</button>
@@ -1246,6 +1392,7 @@ function attachCardEvents() {
 
 async function init() {
   ensureBaseSlots();
+  currentLang = detectLanguage();
   await initDb();
   await restoreSamplesFromDb();
   loadMixesFromStorage();
@@ -1259,6 +1406,7 @@ async function init() {
   syncEngineTracks();
   attachCardEvents();
   renderMixSelect();
+  applyTranslations();
   updateSwVersionLabel("SW: esperando...");
   await setupServiceWorker();
   await displaySwVersion();
@@ -1272,7 +1420,7 @@ async function startAudio() {
 
 function addCustomTrack() {
   if (sampleTracks.length >= MAX_SLOTS) {
-    alert("Límite de 10 samplers alcanzado.");
+    alert(t("limit"));
     return;
   }
   const idx = sampleTracks.length + 1;
@@ -1306,12 +1454,12 @@ async function loadUserSample(file, trackId, card) {
     saveStateMeta();
     const status = card.querySelector(".upload-status");
     if (status) {
-      status.textContent = `Cargado: ${file.name}`;
+      status.textContent = `${t("loaded")}: ${file.name}`;
     }
   } catch (err) {
     console.error("No se pudo cargar el sample", err);
     const status = card.querySelector(".upload-status");
-    if (status) status.textContent = "Error al cargar el sample";
+    if (status) status.textContent = t("statusError");
   }
 }
 
@@ -1339,12 +1487,12 @@ async function loadLibrarySample(url, trackId, card) {
     saveStateMeta();
     const status = card.querySelector(".upload-status");
     if (status) {
-      status.textContent = `Cargado: ${fileName}`;
+      status.textContent = `${t("loaded")}: ${fileName}`;
     }
   } catch (err) {
     console.error("No se pudo cargar el sample de biblioteca", err);
     const status = card.querySelector(".upload-status");
-    if (status) status.textContent = "Error al cargar el sample";
+    if (status) status.textContent = t("statusError");
   }
 }
 
@@ -1360,7 +1508,7 @@ function renderMixSelect() {
   ui.mixSelect.innerHTML = "";
   const placeholder = document.createElement("option");
   placeholder.value = "";
-  placeholder.textContent = "Cargar mezcla...";
+  placeholder.textContent = t("mixPlaceholder");
   ui.mixSelect.appendChild(placeholder);
   savedMixes.forEach((mix) => {
     const opt = document.createElement("option");
@@ -1431,10 +1579,10 @@ ui.playToggle.addEventListener("click", async () => {
   engine.muteAll(false);
   if (!engine.isRunning) {
     engine.play();
-    ui.playToggle.textContent = "⏸ Pausar";
+    ui.playToggle.textContent = t("pause");
   } else {
     engine.stop();
-    ui.playToggle.textContent = "▶ Reproducir";
+    ui.playToggle.textContent = t("play");
   }
 });
 
@@ -1453,7 +1601,7 @@ ui.muteAll.addEventListener("click", async () => {
   await startAudio();
   const mute = !engine.masterMuted;
   engine.muteAll(mute);
-  ui.muteAll.textContent = mute ? "Quitar mute global" : "Mute global";
+  ui.muteAll.textContent = mute ? t("unmuteAll") : t("muteAll");
 });
 
 ui.stopAll.addEventListener("click", () => {
@@ -1470,12 +1618,12 @@ ui.recordMix?.addEventListener("click", async () => {
   await startAudio();
   if (!engine.recording) {
     engine.startRecording();
-    if (ui.recordMix) ui.recordMix.textContent = "⏹ Parar";
-    if (ui.recordStatus) ui.recordStatus.textContent = "Grabando mezcla...";
+    if (ui.recordMix) ui.recordMix.textContent = t("recordStop");
+    if (ui.recordStatus) ui.recordStatus.textContent = t("recordStatusRecording");
   } else {
     const blob = await engine.stopRecording();
-    if (ui.recordMix) ui.recordMix.textContent = "⏺ Grabar";
-    if (ui.recordStatus) ui.recordStatus.textContent = "Generando archivo...";
+    if (ui.recordMix) ui.recordMix.textContent = t("record");
+    if (ui.recordStatus) ui.recordStatus.textContent = t("recordStatusGenerating");
     if (blob) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -1485,16 +1633,16 @@ ui.recordMix?.addEventListener("click", async () => {
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
-      if (ui.recordStatus) ui.recordStatus.textContent = "Archivo listo";
+      if (ui.recordStatus) ui.recordStatus.textContent = t("recordStatusReady");
     } else {
-      if (ui.recordStatus) ui.recordStatus.textContent = "No se pudo grabar";
+      if (ui.recordStatus) ui.recordStatus.textContent = t("recordStatusError");
     }
   }
 });
 
 ui.collapseCards?.addEventListener("click", () => {
   cardsCollapsed = !cardsCollapsed;
-  ui.collapseCards.textContent = cardsCollapsed ? "Expandir" : "Contraer";
+  ui.collapseCards.textContent = cardsCollapsed ? t("expand") : t("collapse");
   renderTracks();
   // actualizar texto de los botones individuales acorde al estado global
   ui.trackGrid.querySelectorAll('[data-action="collapse"]').forEach((btn) => {
@@ -1502,8 +1650,14 @@ ui.collapseCards?.addEventListener("click", () => {
   });
 });
 
+ui.mixSelect?.addEventListener("change", async (ev) => {
+  const id = ev.target.value;
+  if (!id) return;
+  await loadMixById(id);
+});
+
 ui.saveMix?.addEventListener("click", () => {
-  const name = prompt("Nombre para esta mezcla:");
+  const name = prompt(t("promptMix"));
   if (!name) return;
   saveCurrentMix(name.trim());
 });

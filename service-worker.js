@@ -1,4 +1,4 @@
-const CACHE = "sw-v0.0.32";
+const CACHE = "sw-v0.0.33";
 const ASSETS = [
   "/",
   "/index.html",

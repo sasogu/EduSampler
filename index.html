@@ -25,36 +25,36 @@
   <main class="shell">
     <section class="hero">
       <div>
-        <h1>Lanza tus samplers al instante</h1>
-        <p class="lede">
+        <h1 data-i18n="heroTitle">Lanza tus samplers al instante</h1>
+        <p class="lede" data-i18n="heroDesc">
           Empieza con cinco ranuras vacías, sube tus sonidos y actívalos para que suenen juntos. Ideal para juegos rítmicos rápidos en clase.
         </p>
         <div class="controls">
-          <button id="playToggle" class="pill primary">▶ Reproducir</button>
+          <button id="playToggle" class="pill primary" data-i18n="play">▶ Reproducir</button>
           <div class="tempo">
-            <label for="tempo">Tempo global (%)</label>
+            <label for="tempo" data-i18n="tempoLabel">Tempo global (%)</label>
             <input type="range" id="tempo" min="50" max="150" value="100" step="1">
             <span id="tempoValue">100%</span>
           </div>
           <div class="record-controls">
-            <button id="recordMix" class="pill ghost">⏺ Grabar</button>
+            <button id="recordMix" class="pill ghost" data-i18n="record">⏺ Grabar</button>
             <span id="recordStatus" class="muted"></span>
-            <button id="collapseCards" class="pill ghost">Contraer</button>
+            <button id="collapseCards" class="pill ghost" data-i18n="collapse">Contraer</button>
           </div>
         </div>
       </div>
       <div class="panel">
-        <p class="panel-title">Banco de samplers</p>
+        <p class="panel-title" data-i18n="bankTitle">Banco de samplers</p>
         <p id="slotSummary" class="muted">0 slots creados · 0 libres para añadir</p>
         <div class="custom-row">
           <div>
-            <p class="muted">Arranca con 4 samplers vacíos y añade hasta 6 más cuando te queden cortos.</p>
+            <p class="muted" data-i18n="samplerHint">Arranca con 4 samplers vacíos y añade hasta 6 más cuando te queden cortos.</p>
           </div>
-          <button id="addSampler" class="pill ghost small">+ Añadir sampler</button>
+          <button id="addSampler" class="pill ghost small" data-i18n="addSampler">+ Añadir sampler</button>
         </div>
         <div class="custom-row">
           <select id="mixSelect"></select>
-          <button id="saveMix" class="pill ghost small">Guardar mezcla</button>
+          <button id="saveMix" class="pill ghost small" data-i18n="saveMix">Guardar mezcla</button>
         </div>
       </div>
     </section>
@@ -62,13 +62,19 @@
     <section>
       <div class="grid" id="trackGrid"></div>
     </section>
+
+    <section class="about shell">
+      <h2>About</h2>
+      <p class="muted" data-i18n="about">EduSampler por Samuel Soriano. Licencia MIT. Los sonidos incluidos provienen de Pixabay.</p>
+    </section>
+
     <section class="footer">
       <div>
         <p class="muted">EduSampler by EduTicTac · Licencia MIT · Los sonidos incluidos provienen de Pixabay · <span id="swVersion">SW: ...</span></p>
       </div>
       <div class="mini-controls">
-        <button id="muteAll" class="pill ghost">Mute global</button>
-        <button id="stopAll" class="pill ghost">Silencio</button>
+        <button id="muteAll" class="pill ghost" data-i18n="muteAll">Mute global</button>
+        <button id="stopAll" class="pill ghost" data-i18n="stopAll">Silencio</button>
       </div>
     </section>
   </main>
