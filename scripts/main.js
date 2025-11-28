@@ -1180,7 +1180,6 @@ function renderTracks() {
       <div class="card-header">
         <div class="avatar">${track.emoji}</div>
         <div>
-          <div class="name">${track.displayName || track.name}</div>
           <div class="tags">${tags.map((t) => `<span class="tag">${t}</span>`).join("")}</div>
         </div>
       </div>
@@ -1191,7 +1190,6 @@ function renderTracks() {
         <button class="toggle ${toggleClass}" data-action="toggle">${t("btnActivate")}</button>
         <button class="toggle ${soloClass}" data-action="solo">${t("btnSolo")}</button>
         <button class="toggle" data-action="collapse">${collapsed ? t("expand") : t("collapse")}</button>
-        <button class="toggle" data-action="rec-toggle">${recLabel}</button>
       </div>
       <div class="mini">
         <span class="muted">${t("volume")}</span>
@@ -1208,8 +1206,7 @@ function renderTracks() {
       </div>
       <div class="mini recorder">
         <div class="rec-controls">
-          <button class="toggle" data-action="rec-start">${t("recStart") || "Grabar"}</button>
-          <button class="toggle" data-action="rec-stop">${t("recStop") || "Parar"}</button>
+          <button class="toggle" data-action="rec-toggle">${recLabel}</button>
         </div>
         <span class="muted record-status" data-record-status>${t("recIdle") || "Listo para grabar"}</span>
       </div>
@@ -1294,12 +1291,6 @@ function attachCardEvents() {
         startTrackRecording(id, card);
         ev.target.textContent = t("recStop");
       }
-    }
-    if (action === "rec-start") {
-      startTrackRecording(id, card);
-    }
-    if (action === "rec-stop") {
-      stopTrackRecording(id, card);
     }
   });
 
