@@ -15,9 +15,17 @@
   <header class="shell">
     <div class="branding">
       <div class="logo">EduSampler</div>
-      <p class="kicker">Laboratorio de loops para clase de música</p>
+      <p class="kicker" data-i18n="heroDesc">Laboratorio de loops para clase de música</p>
     </div>
     <div class="cta">
+      <div class="lang-picker">
+        <label for="langSelect" class="muted">Lang</label>
+        <select id="langSelect">
+          <option value="es">ES</option>
+          <option value="ca">CA</option>
+          <option value="en">EN</option>
+        </select>
+      </div>
       <button id="installPwa" class="pill ghost">Instalar PWA</button>
     </div>
   </header>
@@ -62,7 +70,6 @@
     <section>
       <div class="grid" id="trackGrid"></div>
     </section>
-
     <section class="about shell">
       <h2>About</h2>
       <p class="muted" data-i18n="about">EduSampler por Samuel Soriano. Licencia MIT. Los sonidos incluidos provienen de Pixabay.</p>

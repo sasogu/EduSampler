@@ -81,6 +81,19 @@ header {
   flex-wrap: wrap;
 }
 
+.lang-picker {
+  display: grid;
+  gap: 4px;
+}
+
+.lang-picker select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--ink);
+}
+
 .pill {
   border: 1px solid rgba(255, 255, 255, 0.12);
   color: var(--ink);

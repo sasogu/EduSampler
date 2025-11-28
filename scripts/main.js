@@ -31,7 +31,6 @@ let savedMixes = [];
 let sampleTracks = [];
 let cardsCollapsed = false;
 let currentLang = "es";
-let currentLang = "es";
 const librarySamples = [
   { file: "samplers/applause-crowd.mp3", label: "Aplauso" },
   { file: "samplers/amen-break-no-copyright-remake-120bpm-25924.mp3", label: "Amen break 120" },
@@ -184,6 +183,8 @@ const translations = {
 };
 
 function detectLanguage() {
+  const stored = localStorage.getItem("edusampler-lang");
+  if (stored) return stored;
   const nav = navigator.language || navigator.userLanguage || "es";
   if (nav.startsWith("ca")) return "ca";
   if (nav.startsWith("en")) return "en";
@@ -993,6 +994,25 @@ function markTrackPlaying(trackId) {
   }, 200);
 }
 
+function applyTranslations() {
+  document.documentElement.lang = currentLang;
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    const key = el.dataset.i18n;
+    if (!key) return;
+    el.textContent = t(key);
+  });
+  if (ui.playToggle) ui.playToggle.textContent = engine.isRunning ? t("pause") : t("play");
+  if (ui.recordMix) ui.recordMix.textContent = engine.recording ? t("recordStop") : t("record");
+  if (ui.collapseCards) ui.collapseCards.textContent = cardsCollapsed ? t("expand") : t("collapse");
+  if (ui.muteAll) ui.muteAll.textContent = engine.masterMuted ? t("unmuteAll") : t("muteAll");
+  renderMixSelect();
+  renderTracks();
+  drawAllWaveforms();
+  renderSlotSummary();
+  const langSelect = document.getElementById("langSelect");
+  if (langSelect) langSelect.value = currentLang;
+}
+
 // ---------- Persistencia (IndexedDB + localStorage) ----------
 async function initDb() {
   return new Promise((resolve, reject) => {
@@ -1607,7 +1627,7 @@ ui.muteAll.addEventListener("click", async () => {
 ui.stopAll.addEventListener("click", () => {
   engine.stop();
   engine.muteAll(true);
-  ui.playToggle.textContent = "▶ Reproducir";
+  ui.playToggle.textContent = t("play");
 });
 
 ui.addSampler.addEventListener("click", () => {
@@ -1638,6 +1658,13 @@ ui.recordMix?.addEventListener("click", async () => {
       if (ui.recordStatus) ui.recordStatus.textContent = t("recordStatusError");
     }
   }
+});
+
+document.getElementById("langSelect")?.addEventListener("change", (ev) => {
+  const lang = ev.target.value;
+  currentLang = lang;
+  localStorage.setItem("edusampler-lang", lang);
+  applyTranslations();
 });
 
 ui.collapseCards?.addEventListener("click", () => {
