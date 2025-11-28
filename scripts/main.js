@@ -894,6 +894,10 @@ function markTrackPlaying(trackId) {
   }, 200);
 }
 
+function isTrackRecording(id) {
+  return Boolean(trackRecorders[id]);
+}
+
 async function startTrackRecording(trackId, card) {
   if (!navigator.mediaDevices?.getUserMedia) {
     updateRecStatus(card, t("statusError"));
@@ -1171,6 +1175,7 @@ function renderTracks() {
     const collapsed = cardsCollapsed || track.collapsed;
     card.className = `card${collapsed ? " collapsed" : ""}`;
     card.dataset.id = track.id;
+    const recLabel = isTrackRecording(track.id) ? t("recStop") : t("recStart");
     card.innerHTML = `
       <div class="card-header">
         <div class="avatar">${track.emoji}</div>
@@ -1186,6 +1191,7 @@ function renderTracks() {
         <button class="toggle ${toggleClass}" data-action="toggle">${t("btnActivate")}</button>
         <button class="toggle ${soloClass}" data-action="solo">${t("btnSolo")}</button>
         <button class="toggle" data-action="collapse">${collapsed ? t("expand") : t("collapse")}</button>
+        <button class="toggle" data-action="rec-toggle">${recLabel}</button>
       </div>
       <div class="mini">
         <span class="muted">${t("volume")}</span>
@@ -1279,6 +1285,15 @@ function attachCardEvents() {
       track.collapsed = !track.collapsed;
       card.classList.toggle("collapsed", track.collapsed || cardsCollapsed);
       ev.target.textContent = track.collapsed || cardsCollapsed ? t("expand") : t("collapse");
+    }
+    if (action === "rec-toggle") {
+      if (isTrackRecording(id)) {
+        stopTrackRecording(id, card);
+        ev.target.textContent = t("recStart");
+      } else {
+        startTrackRecording(id, card);
+        ev.target.textContent = t("recStop");
+      }
     }
     if (action === "rec-start") {
       startTrackRecording(id, card);
