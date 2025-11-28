@@ -1523,7 +1523,7 @@ function renderMixSelect() {
 async function setupServiceWorker() {
   if ("serviceWorker" in navigator) {
     try {
-      const reg = await navigator.serviceWorker.register("/service-worker.js");
+      const reg = await navigator.serviceWorker.register("./service-worker.js");
       if (!navigator.serviceWorker.controller && reg.waiting) {
         reg.waiting.postMessage({ type: "SKIP_WAITING" });
       }
