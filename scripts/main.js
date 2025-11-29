@@ -634,13 +634,32 @@ class EduSamplerEngine {
     return secondsPerBeat * 4;
   }
 
-  stopTrackPlayback(track) {
+  stopTrackPlayback(track, { fadeOut = true } = {}) {
     if (!track) return;
-    if (track.activeSource) {
-      try {
-        track.activeSource.stop();
-      } catch (err) {
-        // ignore
+    const source = track.activeSource;
+    if (source) {
+      const gainNode = track.gainNode;
+      if (fadeOut && this.ctx && gainNode?.gain) {
+        const now = this.ctx.currentTime;
+        const fadeTime = 0.15;
+        const gainParam = gainNode.gain;
+        const currentValue = gainParam.value;
+        gainParam.cancelScheduledValues(now);
+        gainParam.setValueAtTime(currentValue, now);
+        gainParam.linearRampToValueAtTime(0.0001, now + fadeTime);
+        try {
+          source.stop(now + fadeTime + 0.01);
+        } catch (err) {
+          // ignore
+        }
+        const targetGain = Number.isFinite(track.gain) ? track.gain : currentValue;
+        gainParam.setValueAtTime(targetGain, now + fadeTime + 0.02);
+      } else {
+        try {
+          source.stop();
+        } catch (err) {
+          // ignore
+        }
       }
     }
     track.activeSource = null;
@@ -837,26 +856,34 @@ function syncEngineTracks() {
 
 function resetTrackPlayback(track) {
   if (!track) return;
-  if (track.activeSource) {
-    try {
-      track.activeSource.stop();
-    } catch (err) {
-      // ok si ya no suena
+  if (engine?.stopTrackPlayback) {
+    engine.stopTrackPlayback(track, { fadeOut: false });
+  } else {
+    if (track.activeSource) {
+      try {
+        track.activeSource.stop();
+      } catch (err) {
+        // ok si ya no suena
+      }
     }
+    track.activeSource = null;
+    track.isSamplePlaying = false;
+    track.samplePlayingUntil = 0;
   }
-  track.activeSource = null;
-  track.isSamplePlaying = false;
-  track.samplePlayingUntil = 0;
   const engTrack = engine?.tracks?.find((t) => t.id === track.id);
-  if (engTrack && engTrack.activeSource && engTrack.activeSource !== track.activeSource) {
-    try {
-      engTrack.activeSource.stop();
-    } catch (err) {
-      // ignore
+  if (engTrack && engTrack !== track) {
+    if (engine?.stopTrackPlayback) {
+      engine.stopTrackPlayback(engTrack, { fadeOut: false });
+    } else if (engTrack.activeSource) {
+      try {
+        engTrack.activeSource.stop();
+      } catch (err) {
+        // ignore
+      }
+      engTrack.activeSource = null;
+      engTrack.isSamplePlaying = false;
+      engTrack.samplePlayingUntil = 0;
     }
-    engTrack.activeSource = null;
-    engTrack.isSamplePlaying = false;
-    engTrack.samplePlayingUntil = 0;
   }
 }
 
