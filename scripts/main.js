@@ -10,6 +10,7 @@ const ui = {
   slotSummary: document.getElementById("slotSummary"),
   swVersion: document.getElementById("swVersion"),
   mixSelect: document.getElementById("mixSelect"),
+  newMix: document.getElementById("newMix"),
   saveMix: document.getElementById("saveMix"),
   recordMix: document.getElementById("recordMix"),
   recordStatus: document.getElementById("recordStatus"),
@@ -75,6 +76,7 @@ const translations = {
     samplerHint: "Arranca con 4 samplers vacíos y añade hasta 6 más cuando te queden cortos.",
     addSampler: "+ Añadir sampler",
     mixPlaceholder: "Cargar mezcla...",
+    newMix: "Nueva mezcla",
     saveMix: "Guardar mezcla",
     slotsSummary: "{used} slots creados · {free} libres para añadir",
     muteAll: "🔊",
@@ -124,6 +126,7 @@ const translations = {
     samplerHint: "Comença amb 4 samplers buits i afegeix-ne fins a 6 més quan et facen falta.",
     addSampler: "+ Afig sampler",
     mixPlaceholder: "Carrega mescla...",
+    newMix: "Mescla nova",
     saveMix: "Guarda mescla",
     slotsSummary: "{used} slots creats · {free} lliures per afegir",
     muteAll: "🔊",
@@ -173,6 +176,7 @@ const translations = {
     samplerHint: "Start with 4 empty samplers and add up to 6 more if you need them.",
     addSampler: "+ Add sampler",
     mixPlaceholder: "Load mix...",
+    newMix: "New mix",
     saveMix: "Save mix",
     slotsSummary: "{used} slots created · {free} free to add",
     muteAll: "🔊",
@@ -1167,6 +1171,26 @@ async function loadMixById(id) {
   syncEngineTracks();
 }
 
+function startNewMix() {
+  engine.stop();
+  cardsCollapsed = false;
+  if (ui.collapseCards) ui.collapseCards.textContent = t("collapse");
+  globalLoopBars = DEFAULT_LOOP_BARS;
+  globalTempoFactor = DEFAULT_GLOBAL_FACTOR;
+  ui.tempo.value = Math.round(globalTempoFactor * 100);
+  ui.tempoValue.textContent = `${Math.round(globalTempoFactor * 100)}%`;
+  sampleTracks = [];
+  ensureBaseSlots();
+  if (ui.mixSelect) ui.mixSelect.value = "";
+  renderTracks();
+  drawAllWaveforms();
+  renderSlotSummary();
+  engine.setGlobalTempoFactor(globalTempoFactor);
+  syncEngineTracks();
+  saveStateMeta();
+  localStorage.setItem("edusampler-global-tempo", String(globalTempoFactor));
+}
+
 async function saveSampleToDb(track, file) {
   if (!db || !track || !file) return;
   const buffer = await file.arrayBuffer();
@@ -1778,6 +1802,10 @@ ui.collapseCards?.addEventListener("click", () => {
   ui.trackGrid.querySelectorAll('[data-action="collapse"]').forEach((btn) => {
     btn.textContent = cardsCollapsed ? t("expand") : t("collapse");
   });
+});
+
+ui.newMix?.addEventListener("click", () => {
+  startNewMix();
 });
 
 ui.mixSelect?.addEventListener("change", async (ev) => {
