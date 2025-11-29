@@ -280,6 +280,7 @@ class EduSamplerEngine {
       track.waveform = track.waveform ?? null;
       track.tempoFactor = Number.isFinite(track.tempoFactor) ? track.tempoFactor : 1;
       track.collapsed = Boolean(track.collapsed);
+      track.pausedBySolo = Boolean(track.pausedBySolo);
       if (!track.gainNode && this.ctx) {
         track.gainNode = this.createTrackGain(track.gain);
       }
@@ -649,10 +650,38 @@ class EduSamplerEngine {
 
   applySoloState() {
     const hasSolo = this.soloing.size > 0;
-    if (!hasSolo) return;
-    this.tracks.forEach((tr) => {
-      if (!tr.solo) {
+    if (hasSolo) {
+      this.tracks.forEach((tr) => {
+        if (tr.solo) {
+          tr.pausedBySolo = false;
+          return;
+        }
         this.stopTrackPlayback(tr);
+        tr.pausedBySolo = true;
+      });
+      return;
+    }
+
+    if (!this.ctx || !this.isRunning) {
+      this.tracks.forEach((tr) => (tr.pausedBySolo = false));
+      return;
+    }
+
+    const when = (this.nextBarTime || this.ctx.currentTime) + this.lookahead;
+    const barLength = this.getBarLengthSeconds();
+    this.tracks.forEach((tr) => {
+      if (!tr.pausedBySolo) return;
+      tr.pausedBySolo = false;
+      if (!tr.enabled || tr.muted || this.masterMuted) return;
+      const gain = tr.gainNode || this.createTrackGain(tr.gain);
+      tr.gainNode = gain;
+      if (tr.instrument === "sample" && tr.sampleBuffer) {
+        this.playSample(tr, tr.sampleBuffer, when, gain, barLength);
+        return;
+      }
+      const firstStep = tr.pattern?.findIndex(Boolean);
+      if (firstStep >= 0) {
+        this.trigger(tr, when, firstStep, barLength);
       }
     });
   }
@@ -722,7 +751,8 @@ function createEmptyTrack(idx) {
     waveform: null,
     displayName: `Sampler ${idx}`,
     tempoFactor: 1,
-    collapsed: false
+    collapsed: false,
+    pausedBySolo: false
   };
 }
 
