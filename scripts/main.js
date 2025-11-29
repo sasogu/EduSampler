@@ -280,6 +280,7 @@ class EduSamplerEngine {
       track.waveform = track.waveform ?? null;
       track.tempoFactor = Number.isFinite(track.tempoFactor) ? track.tempoFactor : 1;
       track.collapsed = Boolean(track.collapsed);
+      track.expandedOverride = Boolean(track.expandedOverride);
       track.pausedBySolo = Boolean(track.pausedBySolo);
       if (!track.gainNode && this.ctx) {
         track.gainNode = this.createTrackGain(track.gain);
@@ -641,7 +642,7 @@ class EduSamplerEngine {
       const gainNode = track.gainNode;
       if (fadeOut && this.ctx && gainNode?.gain) {
         const now = this.ctx.currentTime;
-        const fadeTime = 0.15;
+        const fadeTime = 0.55;
         const gainParam = gainNode.gain;
         const currentValue = gainParam.value;
         gainParam.cancelScheduledValues(now);
@@ -771,6 +772,7 @@ function createEmptyTrack(idx) {
     displayName: `Sampler ${idx}`,
     tempoFactor: 1,
     collapsed: false,
+    expandedOverride: false,
     pausedBySolo: false
   };
 }
@@ -1242,7 +1244,7 @@ function renderTracks() {
     const toggleClass = track.enabled ? "active" : "";
     const soloClass = track.solo ? "active" : "";
     const card = document.createElement("article");
-    const collapsed = cardsCollapsed || track.collapsed;
+    const collapsed = cardsCollapsed ? !track.expandedOverride : track.collapsed;
     card.className = `card${collapsed ? " collapsed" : ""}`;
     card.dataset.id = track.id;
     const recLabel = isTrackRecording(track.id) ? t("recStop") : t("recStart");
@@ -1349,9 +1351,16 @@ function attachCardEvents() {
       });
     }
     if (action === "collapse") {
-      track.collapsed = !track.collapsed;
-      card.classList.toggle("collapsed", track.collapsed || cardsCollapsed);
-      ev.target.textContent = track.collapsed || cardsCollapsed ? t("expand") : t("collapse");
+      if (cardsCollapsed) {
+        const nextCollapsed = !card.classList.contains("collapsed");
+        track.expandedOverride = !nextCollapsed;
+        card.classList.toggle("collapsed", nextCollapsed);
+        ev.target.textContent = nextCollapsed ? t("expand") : t("collapse");
+      } else {
+        track.collapsed = !track.collapsed;
+        card.classList.toggle("collapsed", track.collapsed);
+        ev.target.textContent = track.collapsed ? t("expand") : t("collapse");
+      }
     }
     if (action === "rec-toggle") {
       if (isTrackRecording(id)) {
@@ -1758,6 +1767,11 @@ document.getElementById("langSelect")?.addEventListener("change", (ev) => {
 
 ui.collapseCards?.addEventListener("click", () => {
   cardsCollapsed = !cardsCollapsed;
+  if (cardsCollapsed) {
+    sampleTracks.forEach((t) => {
+      t.expandedOverride = false;
+    });
+  }
   ui.collapseCards.textContent = cardsCollapsed ? t("expand") : t("collapse");
   renderTracks();
   // actualizar texto de los botones individuales acorde al estado global
