@@ -15,7 +15,7 @@
   <header class="shell">
     <div class="branding">
       <div class="logo">EduSampler</div>
-      <p class="kicker" data-i18n="heroDesc">Laboratorio de loops para clase de música</p>
+      <p class="kicker" data-i18n="heroKicker">Laboratorio de loops para clase de música</p>
     </div>
     <div class="cta">
       <div class="lang-picker">
@@ -38,7 +38,11 @@
           Empieza con cinco ranuras vacías, sube tus sonidos y actívalos para que suenen juntos. Ideal para juegos rítmicos rápidos en clase.
         </p>
         <div class="controls">
-          <button id="playToggle" class="pill primary" data-i18n="play">▶ Reproducir</button>
+          <div class="transport">
+            <button id="playToggle" class="pill primary" data-i18n="play">▶ Reproducir</button>
+            <button id="stopAll" class="pill ghost icon-only" data-i18n="stopAll" aria-label="Stop">⏹</button>
+            <button id="muteAll" class="pill ghost icon-only" data-i18n="muteAll" aria-label="Mute">🔇</button>
+          </div>
           <div class="tempo">
             <label for="tempo" data-i18n="tempoLabel">Tempo global (%)</label>
             <input type="range" id="tempo" min="50" max="150" value="100" step="1">
@@ -73,10 +77,6 @@
      <section class="footer">
       <div>
         <p class="muted">EduSampler by EduTicTac · Licencia MIT · <span id="swVersion">SW: ...</span></p>
-      </div>
-      <div class="mini-controls">
-        <button id="muteAll" class="pill ghost" data-i18n="muteAll">Mute global</button>
-        <button id="stopAll" class="pill ghost" data-i18n="stopAll">Silencio</button>
       </div>
     </section>
   </main>

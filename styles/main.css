@@ -122,6 +122,15 @@ header {
   transform: translateY(-1px);
 }
 
+.pill.icon-only {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 44px;
+  padding: 10px;
+  font-size: 1.05rem;
+}
+
 .hero {
   display: grid;
   grid-template-columns: 1.1fr 0.9fr;
@@ -145,6 +154,13 @@ header {
   align-items: center;
   gap: 16px;
   margin-top: 18px;
+  flex-wrap: wrap;
+}
+
+.transport {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -240,6 +256,8 @@ header {
 
 .card.collapsed {
   grid-template-columns: 1fr;
+  background: linear-gradient(135deg, rgba(16, 51, 45, 0.85), rgba(32, 104, 95, 0.9));
+  border-color: rgba(48, 191, 179, 0.5);
 }
 
 .card.collapsed .avatar,

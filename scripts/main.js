@@ -58,6 +58,7 @@ const translations = {
   es: {
     heroTitle: "Lanza tus samplers al instante",
     heroDesc: "Empieza con ranuras vacías, sube tus sonidos y actívalos juntos.",
+    heroKicker: "Laboratorio de loops para clase de música",
     tempoLabel: "Tempo global (%)",
     record: "⏺ Grabar",
     recordStop: "⏹ Parar",
@@ -76,9 +77,9 @@ const translations = {
     mixPlaceholder: "Cargar mezcla...",
     saveMix: "Guardar mezcla",
     slotsSummary: "{used} slots creados · {free} libres para añadir",
-    muteAll: "Mute global",
-    unmuteAll: "Quitar mute global",
-    stopAll: "Silencio",
+    muteAll: "🔇",
+    unmuteAll: "🔊",
+    stopAll: "⏹",
     play: "▶ Reproducir",
     pause: "⏸ Pausar",
     limit: "Límite de 10 samplers alcanzado.",
@@ -103,6 +104,7 @@ const translations = {
   ca: {
     heroTitle: "Llança els teus samplers al moment",
     heroDesc: "Comença amb ranures buides, puja els teus sons i activa'ls junts.",
+    heroKicker: "Laboratori de loops per a classe de música",
     tempoLabel: "Tempo global (%)",
     record: "⏺ Grava",
     recordStop: "⏹ Para",
@@ -124,9 +126,9 @@ const translations = {
     mixPlaceholder: "Carrega mescla...",
     saveMix: "Guarda mescla",
     slotsSummary: "{used} slots creats · {free} lliures per afegir",
-    muteAll: "Mute global",
-    unmuteAll: "Lleva mute global",
-    stopAll: "Silenci",
+    muteAll: "🔇",
+    unmuteAll: "🔊",
+    stopAll: "⏹",
     play: "▶ Reproduir",
     pause: "⏸ Pausa",
     limit: "Límit de 10 samplers assolit.",
@@ -151,6 +153,7 @@ const translations = {
   en: {
     heroTitle: "Build your band in seconds",
     heroDesc: "Start with empty slots, drop your sounds, and trigger them together.",
+    heroKicker: "Loop lab for music class",
     tempoLabel: "Global tempo (%)",
     record: "⏺ Record",
     recordStop: "⏹ Stop",
@@ -172,9 +175,9 @@ const translations = {
     mixPlaceholder: "Load mix...",
     saveMix: "Save mix",
     slotsSummary: "{used} slots created · {free} free to add",
-    muteAll: "Global mute",
-    unmuteAll: "Unmute all",
-    stopAll: "Stop",
+    muteAll: "🔇",
+    unmuteAll: "🔊",
+    stopAll: "⏹",
     play: "▶ Play",
     pause: "⏸ Pause",
     limit: "Limit of 10 samplers reached.",
@@ -735,6 +738,16 @@ function ensureBaseSlots() {
 function updateSwVersionLabel(text) {
   if (!ui.swVersion) return;
   ui.swVersion.textContent = text;
+}
+
+function isPwaInstalled() {
+  return window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+}
+
+function hideInstallButton() {
+  if (ui.installPwa) {
+    ui.installPwa.style.display = "none";
+  }
 }
 
 function barLengthFromTempo(tempo) {
@@ -1418,6 +1431,9 @@ async function init() {
   updateSwVersionLabel("SW: esperando...");
   await setupServiceWorker();
   await displaySwVersion();
+  if (isPwaInstalled()) {
+    hideInstallButton();
+  }
 }
 
 async function startAudio() {
@@ -1530,9 +1546,19 @@ async function setupServiceWorker() {
   if ("serviceWorker" in navigator) {
     try {
       const reg = await navigator.serviceWorker.register("./service-worker.js");
-      if (!navigator.serviceWorker.controller && reg.waiting) {
+      // si hay un SW esperando y ya hay uno activo, fuerza que tome el control
+      if (navigator.serviceWorker.controller && reg.waiting) {
         reg.waiting.postMessage({ type: "SKIP_WAITING" });
       }
+      reg.addEventListener("updatefound", () => {
+        const sw = reg.installing;
+        if (!sw) return;
+        sw.addEventListener("statechange", () => {
+          if (sw.state === "installed" && navigator.serviceWorker.controller) {
+            sw.postMessage({ type: "SKIP_WAITING" });
+          }
+        });
+      });
     } catch (err) {
       // ok si falla en local
       console.warn("Service worker no disponible", err);
@@ -1560,7 +1586,7 @@ async function displaySwVersion() {
       }
     };
 
-    navigator.serviceWorker.addEventListener("message", handler);
+navigator.serviceWorker.addEventListener("message", handler);
     target.postMessage({ type: "GET_VERSION" });
   } catch (err) {
     console.warn("No se pudo obtener la versión del SW", err);
@@ -1568,18 +1594,36 @@ async function displaySwVersion() {
   }
 }
 
+let swRefreshing = false;
+const hadSwController = !!navigator.serviceWorker?.controller;
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    // solo recarga si ya había un SW controlando
+    if (!hadSwController || swRefreshing) return;
+    swRefreshing = true;
+    window.location.reload();
+  });
+}
+
 let deferredPrompt = null;
 window.addEventListener("beforeinstallprompt", (e) => {
+  if (isPwaInstalled()) {
+    hideInstallButton();
+    return;
+  }
   e.preventDefault();
   deferredPrompt = e;
-  ui.installPwa.style.display = "inline-flex";
+  if (ui.installPwa) ui.installPwa.style.display = "inline-flex";
 });
 
 ui.installPwa.addEventListener("click", async () => {
   if (!deferredPrompt) return;
   deferredPrompt.prompt();
-  await deferredPrompt.userChoice;
+  const choice = await deferredPrompt.userChoice;
   deferredPrompt = null;
+  if (choice?.outcome === "accepted") {
+    hideInstallButton();
+  }
 });
 
 ui.playToggle.addEventListener("click", async () => {
@@ -1669,6 +1713,10 @@ ui.mixSelect?.addEventListener("change", async (ev) => {
   const id = ev.target.value;
   if (!id) return;
   await loadMixById(id);
+});
+
+window.addEventListener("appinstalled", () => {
+  hideInstallButton();
 });
 
 ui.saveMix?.addEventListener("click", () => {

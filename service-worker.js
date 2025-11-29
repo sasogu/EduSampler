@@ -1,4 +1,4 @@
-const CACHE = "sw-v0.0.39";
+const CACHE = "sw-v0.0.43";
 const ASSETS = [
   "./",
   "./index.html",
@@ -30,8 +30,10 @@ const ASSETS = [
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => {
-      return cache.addAll(ASSETS);
+    caches.open(CACHE).then(async (cache) => {
+      await cache.addAll(ASSETS);
+      // activar inmediatamente para forzar actualización
+      await self.skipWaiting();
     })
   );
 });
