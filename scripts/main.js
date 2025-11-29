@@ -335,6 +335,20 @@ class EduSamplerEngine {
     t.enabled = enabled;
     if (!enabled) {
       this.stopTrackPlayback(t);
+      return;
+    }
+    // reset estado de loop al reactivar
+    t.samplePlayingUntil = 0;
+    t.isSamplePlaying = false;
+    t.activeSource = null;
+    if (this.isRunning && this.ctx) {
+      const gain = t.gainNode || this.createTrackGain(t.gain);
+      t.gainNode = gain;
+      if (t.instrument === "sample" && t.sampleBuffer) {
+        const when = (this.nextBarTime || this.ctx.currentTime) + this.lookahead;
+        const barLength = this.getBarLengthSeconds();
+        this.playSample(t, t.sampleBuffer, when, gain, barLength);
+      }
     }
   }
 
