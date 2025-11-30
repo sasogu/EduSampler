@@ -1064,6 +1064,12 @@ function applyTranslations() {
     if (!key) return;
     el.textContent = t(key);
   });
+  document.querySelectorAll("[data-i18n-label]").forEach((el) => {
+    const key = el.dataset.i18nLabel;
+    if (!key) return;
+    el.setAttribute("aria-label", t(key));
+    el.setAttribute("title", t(key));
+  });
   if (ui.playToggle) ui.playToggle.textContent = engine.isRunning ? t("pause") : t("play");
   if (ui.recordMix) ui.recordMix.textContent = engine.recording ? t("recordStop") : t("record");
   if (ui.collapseCards) ui.collapseCards.textContent = cardsCollapsed ? t("expand") : t("collapse");
