@@ -262,10 +262,9 @@ header {
 
 .card.collapsed .avatar,
 .card.collapsed .tags,
-.card.collapsed .mini:not(.name-edit-inline),
+.card.collapsed .mini:not(.name-edit-inline):not(.library-picker),
 .card.collapsed .upload,
 .card.collapsed .loop-editor,
-.card.collapsed .library-picker,
 .card.collapsed .wave-container,
 .card.collapsed .wave-meta {
   display: none;
@@ -392,6 +391,11 @@ header {
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.04);
   color: var(--ink);
+}
+
+.library-status {
+  margin-top: 6px;
+  font-size: 0.9rem;
 }
 
 .mini.recorder {

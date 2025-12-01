@@ -30,7 +30,7 @@ let db = null;
 let globalTempoFactor = DEFAULT_GLOBAL_FACTOR;
 let savedMixes = [];
 let sampleTracks = [];
-let cardsCollapsed = false;
+let cardsCollapsed = true;
 let currentLang = "es";
 const trackRecorders = {};
 const librarySamples = [
@@ -795,6 +795,12 @@ function createEmptyTrack(idx) {
   };
 }
 
+function getLibraryLabel(track) {
+  if (!track?.fileName) return null;
+  const match = librarySamples.find((l) => l.file.endsWith(track.fileName));
+  return match?.label || null;
+}
+
 
 function ensureBaseSlots() {
   if (sampleTracks.length === 0) {
@@ -1193,8 +1199,8 @@ async function loadMixById(id) {
 
 function startNewMix() {
   engine.stop();
-  cardsCollapsed = false;
-  if (ui.collapseCards) ui.collapseCards.textContent = t("collapse");
+  cardsCollapsed = true;
+  if (ui.collapseCards) ui.collapseCards.textContent = t("expand");
   globalLoopBars = DEFAULT_LOOP_BARS;
   globalTempoFactor = DEFAULT_GLOBAL_FACTOR;
   ui.tempo.value = Math.round(globalTempoFactor * 100);
@@ -1307,6 +1313,20 @@ function renderTracks() {
         <button class="toggle ${soloClass}" data-action="solo">${t("btnSolo")}</button>
         <button class="toggle" data-action="collapse">${collapsed ? t("expand") : t("collapse")}</button>
       </div>
+      ${
+        track.instrument === "sample"
+          ? `<div class="mini library-picker">
+               <label class="muted" for="lib-${track.id}">${t("libLabel")}</label>
+               <select id="lib-${track.id}" data-library="sample">
+                 <option value="">${t("libPlaceholder")}</option>
+                 ${librarySamples
+                   .map((l) => `<option value="${l.file}" ${track.fileName && l.file.endsWith(track.fileName) ? "selected" : ""}>${l.label}</option>`)
+                   .join("")}
+               </select>
+               <div class="library-status muted">${getLibraryLabel(track) || track.fileName || t("noSample")}</div>
+             </div>`
+          : ""
+      }
       <div class="mini">
         <span class="muted">${t("volume")}</span>
         <div class="gain">
@@ -1333,15 +1353,6 @@ function renderTracks() {
               <input type="file" accept="audio/*" data-upload="sample">
               <span class="upload-status muted">${track.fileName ? `${t("loaded")}: ${track.fileName}` : t("noSample")}</span>
              </label>
-             <div class="mini library-picker">
-               <label class="muted" for="lib-${track.id}">${t("libLabel")}</label>
-               <select id="lib-${track.id}" data-library="sample">
-                 <option value="">${t("libPlaceholder")}</option>
-                 ${librarySamples
-                   .map((l) => `<option value="${l.file}">${l.label}</option>`)
-                   .join("")}
-               </select>
-             </div>
              <div class="mini loop-editor">
                <div class="loop-field">
                  <label class="muted" for="loop-start-${track.id}">${t("loopStart")}</label>
