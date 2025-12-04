@@ -33,6 +33,18 @@ let sampleTracks = [];
 let cardsCollapsed = true;
 let currentLang = "es";
 const trackRecorders = {};
+const KEY_BINDINGS = {
+  ArrowUp: 1,
+  ArrowDown: 2,
+  ArrowLeft: 3,
+  ArrowRight: 4,
+  Space: 5,
+  KeyA: 6,
+  KeyS: 7,
+  KeyD: 8,
+  KeyF: 9,
+  KeyG: 10
+};
 const librarySamples = [
   { file: "samplers/applause-crowd.mp3", label: "Aplauso" },
   { file: "samplers/amen-break-no-copyright-remake-120bpm-25924.mp3", label: "Amen break 120" },
@@ -810,6 +822,17 @@ function ensureBaseSlots() {
   }
 }
 
+function ensureTrackExistsByIndex(index) {
+  if (index <= 0 || index > MAX_SLOTS) return null;
+  while (sampleTracks.length < index && sampleTracks.length < MAX_SLOTS) {
+    sampleTracks.push(createEmptyTrack(sampleTracks.length + 1));
+  }
+  renderTracks();
+  syncEngineTracks();
+  renderSlotSummary();
+  return sampleTracks[index - 1] || null;
+}
+
 function updateSwVersionLabel(text) {
   if (!ui.swVersion) return;
   ui.swVersion.textContent = text;
@@ -1579,6 +1602,35 @@ function addCustomTrack() {
   saveStateMeta();
 }
 
+function isTypingTarget(el) {
+  if (!el) return false;
+  if (el.isContentEditable) return true;
+  const editableTags = ["INPUT", "TEXTAREA", "SELECT"];
+  return editableTags.includes(el.tagName);
+}
+
+async function handleKeyBinding(event) {
+  const code = event.code;
+  const targetIndex = KEY_BINDINGS[code];
+  if (!targetIndex) return;
+  if (event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.repeat) return;
+  if (isTypingTarget(document.activeElement)) return;
+  event.preventDefault();
+
+  const track = ensureTrackExistsByIndex(targetIndex);
+  if (!track) return;
+  await startAudio();
+  track.enabled = !track.enabled;
+  if (engine.ctx) {
+    engine.setTrackEnabled(track.id, track.enabled);
+  }
+  const card = ui.trackGrid.querySelector(`.card[data-id="${track.id}"]`);
+  const toggleBtn = card?.querySelector('[data-action="toggle"]');
+  toggleBtn?.classList.toggle("active", track.enabled);
+  saveStateMeta();
+}
+
 async function loadUserSample(file, trackId, card) {
   try {
     await startAudio();
@@ -1847,6 +1899,10 @@ ui.mixSelect?.addEventListener("change", async (ev) => {
 
 window.addEventListener("appinstalled", () => {
   hideInstallButton();
+});
+
+window.addEventListener("keydown", (ev) => {
+  handleKeyBinding(ev);
 });
 
 ui.saveMix?.addEventListener("click", () => {
