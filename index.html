@@ -21,12 +21,13 @@
       <div class="lang-picker">
         <label for="langSelect" class="muted">Lang</label>
         <select id="langSelect">
-          <option value="es">ES</option>
           <option value="ca">CA</option>
+          <option value="es">ES</option>
           <option value="en">EN</option>
         </select>
       </div>
-      <button id="installPwa" class="pill ghost">Instalar</button>
+      <button id="installPwa" class="pill ghost" data-i18n="install">Instalar</button>
+      <button id="helpToggle" class="pill ghost" data-i18n="helpBtn">❓ Ayuda</button>
     </div>
   </header>
 
@@ -74,6 +75,21 @@
 
     <section>
       <div class="grid" id="trackGrid"></div>
+    </section>
+    <section class="help-panel" id="helpPanel" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+      <div class="help-card">
+        <div class="help-head">
+          <h2 id="helpTitle" data-i18n="helpTitle">Atajos de teclado</h2>
+          <button id="helpClose" class="pill ghost small" data-i18n="helpClose">Cerrar</button>
+        </div>
+        <ul class="help-list">
+          <li><strong data-i18n="helpEnter">Intro / Enter</strong>: <span data-i18n="helpEnterDesc">Reproducir o parar la mezcla</span></li>
+          <li><strong data-i18n="helpArrows">Flechas ↑↓←→</strong>: <span data-i18n="helpArrowsDesc">Activan los samplers 1, 2, 3 y 4</span></li>
+          <li><strong data-i18n="helpSpace">Espacio</strong>: <span data-i18n="helpSpaceDesc">Activa el sampler 5</span></li>
+          <li><strong data-i18n="helpLetters">Teclas A S D F G</strong>: <span data-i18n="helpLettersDesc">Activan los samplers 6, 7, 8, 9 y 10</span></li>
+          <li><strong data-i18n="helpHint">Nota</strong>: <span data-i18n="helpHintDesc">Las teclas se saltan si estás escribiendo en un campo de texto</span></li>
+        </ul>
+      </div>
     </section>
      <section class="footer">
       <div>

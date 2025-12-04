@@ -4,6 +4,9 @@ const ui = {
   tempo: document.getElementById("tempo"),
   tempoValue: document.getElementById("tempoValue"),
   installPwa: document.getElementById("installPwa"),
+  helpToggle: document.getElementById("helpToggle"),
+  helpPanel: document.getElementById("helpPanel"),
+  helpClose: document.getElementById("helpClose"),
   muteAll: document.getElementById("muteAll"),
   stopAll: document.getElementById("stopAll"),
   addSampler: document.getElementById("addSampler"),
@@ -82,8 +85,22 @@ const translations = {
     recStart: "Grabar",
     recStop: "Parar",
     recIdle: "Listo para grabar",
+    install: "Instalar",
     collapse: "Contraer",
     expand: "Expandir",
+    helpBtn: "❓ Ayuda",
+    helpTitle: "Atajos de teclado",
+    helpClose: "Cerrar",
+    helpEnter: "Intro / Enter",
+    helpEnterDesc: "Reproducir o parar la mezcla",
+    helpArrows: "Flechas ↑↓←→",
+    helpArrowsDesc: "Activan los samplers 1, 2, 3 y 4",
+    helpSpace: "Espacio",
+    helpSpaceDesc: "Activa el sampler 5",
+    helpLetters: "Teclas A S D F G",
+    helpLettersDesc: "Activan los samplers 6, 7, 8, 9 y 10",
+    helpHint: "Nota",
+    helpHintDesc: "Las teclas se ignoran cuando escribes en un campo de texto",
     bankTitle: "Banco de samplers",
     samplerHint: "Arranca con 4 samplers vacíos y añade hasta 6 más cuando te queden cortos.",
     addSampler: "+ Añadir sampler",
@@ -129,11 +146,25 @@ const translations = {
     recStart: "Grava",
     recStop: "Para",
     recIdle: "Llest per gravar",
+    install: "Instal·la",
     recStart: "Grava",
     recStop: "Para",
     recIdle: "Llest per gravar",
     collapse: "Contreu",
     expand: "Expandeix",
+    helpBtn: "❓ Ajuda",
+    helpTitle: "Dreceres de teclat",
+    helpClose: "Tanca",
+    helpEnter: "Intro / Enter",
+    helpEnterDesc: "Reprodueix o para la mescla",
+    helpArrows: "Fletxes ↑↓←→",
+    helpArrowsDesc: "Activen els samplers 1, 2, 3 i 4",
+    helpSpace: "Espai",
+    helpSpaceDesc: "Activa el sampler 5",
+    helpLetters: "Tecles A S D F G",
+    helpLettersDesc: "Activen els samplers 6, 7, 8, 9 i 10",
+    helpHint: "Nota",
+    helpHintDesc: "Les tecles s'ignoren quan escrius en un camp de text",
     bankTitle: "Banc de samplers",
     samplerHint: "Comença amb 4 samplers buits i afegeix-ne fins a 6 més quan et facen falta.",
     addSampler: "+ Afig sampler",
@@ -179,11 +210,25 @@ const translations = {
     recStart: "Record",
     recStop: "Stop",
     recIdle: "Ready to record",
+    install: "Install",
     recStart: "Record",
     recStop: "Stop",
     recIdle: "Ready to record",
     collapse: "Collapse",
     expand: "Expand",
+    helpBtn: "❓ Help",
+    helpTitle: "Keyboard shortcuts",
+    helpClose: "Close",
+    helpEnter: "Enter / Return",
+    helpEnterDesc: "Play or stop the mix",
+    helpArrows: "Arrow keys ↑↓←→",
+    helpArrowsDesc: "Toggle samplers 1, 2, 3 and 4",
+    helpSpace: "Spacebar",
+    helpSpaceDesc: "Toggles sampler 5",
+    helpLetters: "Keys A S D F G",
+    helpLettersDesc: "Toggle samplers 6, 7, 8, 9 and 10",
+    helpHint: "Note",
+    helpHintDesc: "Keys are ignored while typing in a text field",
     bankTitle: "Sampler bank",
     samplerHint: "Start with 4 empty samplers and add up to 6 more if you need them.",
     addSampler: "+ Add sampler",
@@ -1586,6 +1631,18 @@ async function startAudio() {
   engine.setGlobalTempoFactor(globalTempoFactor);
 }
 
+async function togglePlayPause() {
+  await startAudio();
+  engine.muteAll(false);
+  if (!engine.isRunning) {
+    engine.play();
+    ui.playToggle.textContent = t("pause");
+  } else {
+    engine.stop();
+    ui.playToggle.textContent = t("play");
+  }
+}
+
 function addCustomTrack() {
   if (sampleTracks.length >= MAX_SLOTS) {
     alert(t("limit"));
@@ -1611,11 +1668,16 @@ function isTypingTarget(el) {
 
 async function handleKeyBinding(event) {
   const code = event.code;
-  const targetIndex = KEY_BINDINGS[code];
-  if (!targetIndex) return;
   if (event.metaKey || event.ctrlKey || event.altKey) return;
   if (event.repeat) return;
   if (isTypingTarget(document.activeElement)) return;
+  if (code === "Enter" || code === "NumpadEnter") {
+    event.preventDefault();
+    await togglePlayPause();
+    return;
+  }
+  const targetIndex = KEY_BINDINGS[code];
+  if (!targetIndex) return;
   event.preventDefault();
 
   const track = ensureTrackExistsByIndex(targetIndex);
@@ -1800,15 +1862,7 @@ ui.installPwa.addEventListener("click", async () => {
 });
 
 ui.playToggle.addEventListener("click", async () => {
-  await startAudio();
-  engine.muteAll(false);
-  if (!engine.isRunning) {
-    engine.play();
-    ui.playToggle.textContent = t("pause");
-  } else {
-    engine.stop();
-    ui.playToggle.textContent = t("play");
-  }
+  await togglePlayPause();
 });
 
 ui.tempo.addEventListener("input", (e) => {
@@ -1910,6 +1964,19 @@ ui.saveMix?.addEventListener("click", () => {
   if (!name) return;
   saveCurrentMix(name.trim());
 });
+
+function toggleHelp(show) {
+  if (!ui.helpPanel) return;
+  const next = typeof show === "boolean" ? show : ui.helpPanel.hasAttribute("hidden");
+  if (next) {
+    ui.helpPanel.removeAttribute("hidden");
+  } else {
+    ui.helpPanel.setAttribute("hidden", "true");
+  }
+}
+
+ui.helpToggle?.addEventListener("click", () => toggleHelp(true));
+ui.helpClose?.addEventListener("click", () => toggleHelp(false));
 
 ui.mixSelect?.addEventListener("change", async (ev) => {
   const id = ev.target.value;
