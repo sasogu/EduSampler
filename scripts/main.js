@@ -48,27 +48,71 @@ const KEY_BINDINGS = {
   KeyF: 9,
   KeyG: 10
 };
-const librarySamples = [
-  { file: "samplers/applause-crowd.mp3", label: "Aplauso" },
-  { file: "samplers/amen-break-no-copyright-remake-120bpm-25924.mp3", label: "Amen break 120" },
-  { file: "samplers/beat-addictive-percussive-rhythm-loop-120bpm-438642.mp3", label: "Perc loop 120" },
-  { file: "samplers/bells-melody-loop-266598.mp3", label: "Bells melody" },
-  { file: "samplers/break-drum-loop-132276.mp3", label: "Break drum" },
-  { file: "samplers/cs-fx-up-2-d-128bpm.mp3", label: "FX subida" },
-  { file: "samplers/cs-hihat-loop-01-128bpm.mp3", label: "Hi-hat loop 01" },
-  { file: "samplers/cs-hithat-loop-03-128bpm.mp3", label: "Hi-hat loop 03" },
-  { file: "samplers/cs-kick-04-d-128bpm.mp3", label: "Kick 04" },
-  { file: "samplers/emotional-guitar-loop-02-301396.mp3", label: "Guitarra emocional" },
-  { file: "samplers/foo-fighters-type-guitar-loop-2-246591.mp3", label: "Guitarra Foo Fighters" },
-  { file: "samplers/happy-new-year.mp3", label: "Happy New Year" },
-  { file: "samplers/hard-rock-guitar-loop-1-289431.mp3", label: "Guitarra hard rock" },
-  { file: "samplers/hip-hop-drum-loop-main-beat-102-bpm-265600.mp3", label: "Hip-hop drum 102" },
-  { file: "samplers/juice-wrld-x-marshmello-guitar-loop-246372.mp3", label: "Guitarra Juice WRLD" },
-  { file: "samplers/nostalgia-melody-loop-v1-264546.mp3", label: "Nostalgia melody" },
-  { file: "samplers/pluck-loop-02-gminor-126bpm-405157.mp3", label: "Pluck 126 Gm" },
-  { file: "samplers/santaclaus_hohoho.mp3", label: "Santa Ho Ho Ho" },
-  { file: "samplers/typical-trap-loop-140bpm-129880.mp3", label: "Trap loop 140" }
+const libraryCategories = [
+  {
+    id: "ritmos",
+    labels: { es: "Ritmos", en: "Beats", ca: "Ritmes" },
+    items: [
+      { file: "samplers/ritmos/amen-break-no-copyright-remake-120bpm-25924.mp3", label: "Amen break 120" },
+      { file: "samplers/ritmos/beat-addictive-percussive-rhythm-loop-120bpm-438642.mp3", label: "Perc loop 120" },
+      { file: "samplers/ritmos/break-drum-loop-132276.mp3", label: "Break drum" },
+      { file: "samplers/ritmos/cs-hihat-loop-01-128bpm.mp3", label: "Hi-hat loop 01" },
+      { file: "samplers/ritmos/cs-hithat-loop-03-128bpm.mp3", label: "Hi-hat loop 03" },
+      { file: "samplers/ritmos/cs-kick-04-d-128bpm.mp3", label: "Kick 04 D 128" },
+      { file: "samplers/ritmos/hip-hop-drum-loop-main-beat-102-bpm-265600.mp3", label: "Hip-hop drum 102" },
+      { file: "samplers/ritmos/kick-loop-short-16-140bpm-eminor-320605.mp3", label: "Kick loop 140 Em" },
+      { file: "samplers/ritmos/typical-trap-loop-140bpm-129880.mp3", label: "Trap loop 140" }
+    ]
+  },
+  {
+    id: "melodias",
+    labels: { es: "Melodías", en: "Melodies", ca: "Melodies" },
+    items: [
+      { file: "samplers/melodias/bells-melody-loop-266598.mp3", label: "Bells melody" },
+      { file: "samplers/melodias/nostalgia-melody-loop-v1-264546.mp3", label: "Nostalgia melody" },
+      { file: "samplers/melodias/pluck-loop-01-gminor-126bpm-405155.mp3", label: "Pluck 126 Gm 01" },
+      { file: "samplers/melodias/pluck-loop-02-gminor-126bpm-405157.mp3", label: "Pluck 126 Gm 02" },
+      { file: "samplers/melodias/pluck-loop-04-dminor-128bpm-405154.mp3", label: "Pluck 128 Dm 04" },
+      { file: "samplers/melodias/pluck-loop-06-dmajor-120bpm-405151.mp3", label: "Pluck 120 Dmaj 06" },
+      { file: "samplers/melodias/synth-loop-01-126bpm-gminor-320268.mp3", label: "Synth loop 126 Gm" },
+      { file: "samplers/melodias/synth-loop-02-135bpm-fminor-320270.mp3", label: "Synth loop 135 Fm" },
+      { file: "samplers/melodias/synth-loop-03-135bpm-dminor-320271.mp3", label: "Synth loop 135 Dm" }
+    ]
+  },
+  {
+    id: "guitarras",
+    labels: { es: "Guitarras", en: "Guitars", ca: "Guitarres" },
+    items: [
+      { file: "samplers/guitarras/emotional-guitar-loop-02-301396.mp3", label: "Guitarra emocional" },
+      { file: "samplers/guitarras/foo-fighters-type-guitar-loop-2-246591.mp3", label: "Guitarra Foo Fighters" },
+      { file: "samplers/guitarras/hard-rock-guitar-loop-1-289431.mp3", label: "Guitarra hard rock" },
+      { file: "samplers/guitarras/juice-wrld-x-marshmello-guitar-loop-246372.mp3", label: "Guitarra Juice WRLD" }
+    ]
+  },
+  {
+    id: "vocal",
+    labels: { es: "Vocales", en: "Vocals", ca: "Vocals" },
+    items: [
+      { file: "samplers/vocal/angelic-voice-81921.mp3", label: "Voz angelical" },
+      { file: "samplers/vocal/vocal-anthem-sha-loop-130bpm-272073.mp3", label: "Voz anthem 130" },
+      { file: "samplers/vocal/vocal-loop-vocoder-36386.mp3", label: "Vocoder loop" },
+      { file: "samplers/vocal/woman-vocal-gladiator-type-65610.mp3", label: "Voz gladiator" }
+    ]
+  },
+  {
+    id: "varios",
+    labels: { es: "FX y varios", en: "FX & misc", ca: "FX i altres" },
+    items: [
+      { file: "samplers/varios/applause-crowd.mp3", label: "Aplauso" },
+      { file: "samplers/varios/cs-fx-up-1-d-128bpm-258888.mp3", label: "FX subida 1" },
+      { file: "samplers/varios/cs-fx-up-2-d-128bpm.mp3", label: "FX subida 2" },
+      { file: "samplers/varios/happy-new-year.mp3", label: "Happy New Year" },
+      { file: "samplers/varios/santaclaus_hohoho.mp3", label: "Santa Ho Ho Ho" }
+    ]
+  }
 ];
+
+const librarySamples = libraryCategories.flatMap((category) => category.items.map((item) => ({ ...item, category: category.id })));
 
 const translations = {
   es: {
@@ -852,10 +896,25 @@ function createEmptyTrack(idx) {
   };
 }
 
-function getLibraryLabel(track) {
+function getCategoryLabel(categoryIdOrObj) {
+  const category =
+    typeof categoryIdOrObj === "string"
+      ? libraryCategories.find((c) => c.id === categoryIdOrObj)
+      : categoryIdOrObj;
+  if (!category) return categoryIdOrObj || "";
+  const labels = category.labels || {};
+  return labels[currentLang] || labels.es || labels.en || category.id;
+}
+
+function getLibraryLabel(track, withCategory = false) {
   if (!track?.fileName) return null;
   const match = librarySamples.find((l) => l.file.endsWith(track.fileName));
-  return match?.label || null;
+  if (!match) return null;
+  if (withCategory && match.category) {
+    const categoryLabel = getCategoryLabel(match.category);
+    return `${categoryLabel} · ${match.label}`;
+  }
+  return match.label;
 }
 
 
@@ -1387,11 +1446,21 @@ function renderTracks() {
                <label class="muted" for="lib-${track.id}">${t("libLabel")}</label>
                <select id="lib-${track.id}" data-library="sample">
                  <option value="">${t("libPlaceholder")}</option>
-                 ${librarySamples
-                   .map((l) => `<option value="${l.file}" ${track.fileName && l.file.endsWith(track.fileName) ? "selected" : ""}>${l.label}</option>`)
+                 ${libraryCategories
+                   .map(
+                     (category) =>
+                       `<optgroup label="${getCategoryLabel(category)}">
+                          ${category.items
+                            .map(
+                              (l) =>
+                                `<option value="${l.file}" ${track.fileName && l.file.endsWith(track.fileName) ? "selected" : ""}>${l.label}</option>`
+                            )
+                            .join("")}
+                        </optgroup>`
+                   )
                    .join("")}
                </select>
-               <div class="library-status muted">${getLibraryLabel(track) || track.fileName || t("noSample")}</div>
+               <div class="library-status muted">${getLibraryLabel(track, true) || track.fileName || t("noSample")}</div>
              </div>`
           : ""
       }
@@ -1746,7 +1815,8 @@ async function loadLibrarySample(url, trackId, card) {
     saveStateMeta();
     const status = card.querySelector(".upload-status");
     if (status) {
-      status.textContent = `${t("loaded")}: ${fileName}`;
+      const prettyName = getLibraryLabel(target, true) || fileName;
+      status.textContent = `${t("loaded")}: ${prettyName}`;
     }
   } catch (err) {
     console.error("No se pudo cargar el sample de biblioteca", err);

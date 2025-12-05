@@ -393,6 +393,15 @@ header {
   color: var(--ink);
 }
 
+.library-picker optgroup {
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.library-picker option {
+  color: var(--ink);
+}
+
 .library-status {
   margin-top: 6px;
   font-size: 0.9rem;
