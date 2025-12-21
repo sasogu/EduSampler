@@ -1965,21 +1965,35 @@ async function displaySwVersion() {
   }
   try {
     const registration = await navigator.serviceWorker.ready;
-    const target = registration.active || navigator.serviceWorker.controller;
+    const target = navigator.serviceWorker.controller || registration.active || registration.waiting;
     if (!target) {
       updateSwVersionLabel("SW: no activo");
       return;
     }
 
-    const handler = (event) => {
-      if (event.data?.type === "SW_VERSION") {
-        updateSwVersionLabel(`SW ${event.data.version}`);
-        navigator.serviceWorker.removeEventListener("message", handler);
+    // Usamos MessageChannel para que el SW pueda responder vía event.ports
+    // incluso si event.source no está disponible.
+    const channel = new MessageChannel();
+    const timeoutMs = 1500;
+
+    const timeoutId = setTimeout(() => {
+      try {
+        channel.port1.onmessage = null;
+      } catch (err) {
+        // ignore
+      }
+      updateSwVersionLabel("SW: sin respuesta");
+    }, timeoutMs);
+
+    channel.port1.onmessage = (event) => {
+      const data = event.data;
+      if (data?.type === "SW_VERSION") {
+        clearTimeout(timeoutId);
+        updateSwVersionLabel(`SW ${data.version}`);
       }
     };
 
-navigator.serviceWorker.addEventListener("message", handler);
-    target.postMessage({ type: "GET_VERSION" });
+    target.postMessage({ type: "GET_VERSION" }, [channel.port2]);
   } catch (err) {
     console.warn("No se pudo obtener la versión del SW", err);
     updateSwVersionLabel("SW: error");
