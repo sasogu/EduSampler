@@ -15,6 +15,9 @@ const ui = {
   mixSelect: document.getElementById("mixSelect"),
   newMix: document.getElementById("newMix"),
   saveMix: document.getElementById("saveMix"),
+  exportMix: document.getElementById("exportMix"),
+  importMix: document.getElementById("importMix"),
+  importMixFile: document.getElementById("importMixFile"),
   recordMix: document.getElementById("recordMix"),
   recordStatus: document.getElementById("recordStatus"),
   collapseCards: document.getElementById("collapseCards")
@@ -172,6 +175,12 @@ const translations = {
     waveHint: "Haz clic o arrastra para ajustar inicio/fin",
     statusError: "Error al cargar el sample",
     promptMix: "Nombre para esta mezcla:",
+    exportMix: "Exportar mezcla",
+    importMix: "Importar mezcla",
+    exportNoMix: "Selecciona una mezcla o guarda una primero.",
+    exportGenerating: "Generando exportación...",
+    importInvalid: "Archivo de mezcla no válido",
+    importOk: "Mezcla importada",
     btnActivate: "Activar",
     btnSolo: "Solo",
     tagEmpty: "slot libre",
@@ -236,6 +245,12 @@ const translations = {
     waveHint: "Fes clic o arrossega per ajustar inici/final",
     statusError: "Error en carregar el sample",
     promptMix: "Nom per a esta mescla:",
+    exportMix: "Exporta mescla",
+    importMix: "Importa mescla",
+    exportNoMix: "Selecciona una mescla o guarda'n una primer.",
+    exportGenerating: "Generant exportació...",
+    importInvalid: "Fitxer de mescla no vàlid",
+    importOk: "Mescla importada",
     btnActivate: "Activa",
     btnSolo: "Solo",
     tagEmpty: "slot lliure",
@@ -300,6 +315,12 @@ const translations = {
     waveHint: "Click or drag to set start/end",
     statusError: "Error loading sample",
     promptMix: "Name this mix:",
+    exportMix: "Export mix",
+    importMix: "Import mix",
+    exportNoMix: "Select a mix or save one first.",
+    exportGenerating: "Generating export...",
+    importInvalid: "Invalid mix file",
+    importOk: "Mix imported",
     btnActivate: "Activate",
     btnSolo: "Solo",
     tagEmpty: "empty slot",
@@ -1261,6 +1282,210 @@ function putRecord(storeName, value) {
   });
 }
 
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer || new ArrayBuffer(0));
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function base64ToArrayBuffer(base64) {
+  const bin = atob(base64 || "");
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) {
+    bytes[i] = bin.charCodeAt(i);
+  }
+  return bytes.buffer;
+}
+
+function downloadTextFile(text, fileName, mime = "application/json") {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+function isPlainObject(v) {
+  return Boolean(v) && typeof v === "object" && !Array.isArray(v);
+}
+
+function isBundledLibraryFileName(fileName) {
+  if (!fileName) return false;
+  // Los samples integrados se cargan desde /samplers/** y guardan como fileName el basename
+  return librarySamples.some((l) => (l.file || "").endsWith(String(fileName)));
+}
+
+function isUserProvidedFileName(fileName) {
+  if (!fileName) return false;
+  // Grabaciones internas
+  if (String(fileName).startsWith("grab-")) return true;
+  // Subidos por el usuario: no coinciden con la biblioteca integrada
+  return !isBundledLibraryFileName(fileName);
+}
+
+async function exportMixPortable() {
+  if (!ui.exportMix) return;
+  if (ui.recordStatus) ui.recordStatus.textContent = t("exportGenerating");
+
+  const selectedMixId = ui.mixSelect?.value || "";
+  const selectedMix = selectedMixId ? savedMixes.find((m) => m.id === selectedMixId) : null;
+
+  // Si no hay mezcla seleccionada, exportamos el estado actual como una mezcla temporal
+  const mix =
+    selectedMix ||
+    {
+      id: `export-${Date.now()}`,
+      name: `Export ${new Date().toLocaleString()}`,
+      date: Date.now(),
+      globalTempoFactor,
+      tracks: sampleTracks.map((tr) => ({
+        id: tr.id,
+        displayName: tr.displayName,
+        fileName: tr.fileName,
+        loopStart: tr.loopStart,
+        loopEnd: tr.loopEnd,
+        enabled: tr.enabled,
+        tempoFactor: tr.tempoFactor ?? 1,
+        collapsed: Boolean(tr.collapsed)
+      }))
+    };
+
+  if (!mix?.tracks?.length) {
+    if (ui.recordStatus) ui.recordStatus.textContent = "";
+    alert(t("exportNoMix"));
+    return;
+  }
+
+  const samples = [];
+  for (const tr of mix.tracks) {
+    if (!tr?.id) continue;
+    // Solo exportamos audios aportados por el usuario (subidos o grabados)
+    if (!isUserProvidedFileName(tr.fileName)) continue;
+    // Preferimos copia por mezcla si estamos exportando una mezcla guardada
+    let rec = null;
+    try {
+      if (selectedMix) {
+        rec = await getMixSampleForTrack(mix.id, tr.id);
+      }
+    } catch (err) {
+      rec = null;
+    }
+
+    // Fallback: slot actual (para export de estado actual o mezclas antiguas)
+    if (!rec?.data) {
+      try {
+        rec = await getRecord(DB_STORE, tr.id);
+      } catch (err) {
+        rec = null;
+      }
+    }
+
+    if (rec?.data) {
+      samples.push({
+        trackId: tr.id,
+        fileName: rec.fileName || tr.fileName || null,
+        dataB64: arrayBufferToBase64(rec.data)
+      });
+    }
+  }
+
+  const payload = {
+    kind: "edusampler-mix",
+    version: 1,
+    exportedAt: Date.now(),
+    mix: {
+      name: mix.name,
+      date: mix.date,
+      globalTempoFactor: mix.globalTempoFactor,
+      tracks: mix.tracks
+    },
+    samples
+  };
+
+  const safeName = String(mix.name || "mix")
+    .trim()
+    .slice(0, 50)
+    .replace(/[^a-zA-Z0-9-_ ]/g, "")
+    .replace(/\s+/g, "-")
+    .toLowerCase();
+  downloadTextFile(JSON.stringify(payload), `edusampler-${safeName || "mix"}.json`);
+  if (ui.recordStatus) ui.recordStatus.textContent = "";
+}
+
+async function importMixPortableFromFile(file) {
+  if (!file) return;
+  const raw = await file.text();
+  let data;
+  try {
+    data = JSON.parse(raw);
+  } catch (err) {
+    alert(t("importInvalid"));
+    return;
+  }
+
+  if (!isPlainObject(data) || data.kind !== "edusampler-mix" || !isPlainObject(data.mix) || !Array.isArray(data.mix.tracks)) {
+    alert(t("importInvalid"));
+    return;
+  }
+
+  const newMixId = `${Date.now()}`;
+  const importedMix = {
+    id: newMixId,
+    name: String(data.mix.name || t("saveMix")).slice(0, 60),
+    date: Date.now(),
+    globalTempoFactor: Number(data.mix.globalTempoFactor) || DEFAULT_GLOBAL_FACTOR,
+    tracks: data.mix.tracks
+      .filter((tr) => tr && tr.id)
+      .map((tr) => ({
+        id: String(tr.id),
+        displayName: tr.displayName,
+        fileName: tr.fileName,
+        loopStart: tr.loopStart,
+        loopEnd: tr.loopEnd,
+        enabled: tr.enabled,
+        tempoFactor: tr.tempoFactor,
+        collapsed: tr.collapsed
+      }))
+  };
+
+  // Guardar audios en store por mezcla
+  try {
+    const samples = Array.isArray(data.samples) ? data.samples : [];
+    for (const s of samples) {
+      if (!s?.trackId || !s?.dataB64) continue;
+      const buffer = base64ToArrayBuffer(String(s.dataB64));
+      await putRecord(DB_MIX_STORE, {
+        id: `${newMixId}:${String(s.trackId)}`,
+        mixId: newMixId,
+        trackId: String(s.trackId),
+        fileName: s.fileName || null,
+        data: buffer
+      });
+    }
+  } catch (err) {
+    console.warn("No se pudieron importar samples", err);
+  }
+
+  savedMixes.unshift(importedMix);
+  savedMixes = savedMixes.slice(0, 10);
+  persistMixes();
+  renderMixSelect();
+  if (ui.mixSelect) ui.mixSelect.value = newMixId;
+  await loadMixById(newMixId);
+  if (ui.recordStatus) ui.recordStatus.textContent = t("importOk");
+  setTimeout(() => {
+    if (ui.recordStatus && ui.recordStatus.textContent === t("importOk")) ui.recordStatus.textContent = "";
+  }, 1500);
+}
+
 async function copySlotSampleToMix(mixId, trackId) {
   if (!db || !mixId || !trackId) return;
   const slotRec = await getRecord(DB_STORE, trackId);
@@ -1547,7 +1772,6 @@ function renderTracks() {
                    )
                    .join("")}
                </select>
-               <div class="library-status muted">${getLibraryLabel(track, true) || track.fileName || t("noSample")}</div>
              </div>`
           : ""
       }
@@ -1902,8 +2126,7 @@ async function loadLibrarySample(url, trackId, card) {
     saveStateMeta();
     const status = card.querySelector(".upload-status");
     if (status) {
-      const prettyName = getLibraryLabel(target, true) || fileName;
-      status.textContent = `${t("loaded")}: ${prettyName}`;
+      status.textContent = t("loaded");
     }
   } catch (err) {
     console.error("No se pudo cargar el sample de biblioteca", err);
@@ -2136,6 +2359,21 @@ ui.saveMix?.addEventListener("click", () => {
   saveCurrentMix(name.trim());
 });
 
+ui.exportMix?.addEventListener("click", async () => {
+  await exportMixPortable();
+});
+
+ui.importMix?.addEventListener("click", () => {
+  ui.importMixFile?.click();
+});
+
+ui.importMixFile?.addEventListener("change", async (ev) => {
+  const file = ev.target.files?.[0];
+  // permitir re-importar el mismo archivo sin tener que cambiar nombre
+  ev.target.value = "";
+  await importMixPortableFromFile(file);
+});
+
 function toggleHelp(show) {
   if (!ui.helpPanel) return;
   const next = typeof show === "boolean" ? show : ui.helpPanel.hasAttribute("hidden");
@@ -2148,11 +2386,5 @@ function toggleHelp(show) {
 
 ui.helpToggle?.addEventListener("click", () => toggleHelp(true));
 ui.helpClose?.addEventListener("click", () => toggleHelp(false));
-
-ui.mixSelect?.addEventListener("change", async (ev) => {
-  const id = ev.target.value;
-  if (!id) return;
-  await loadMixById(id);
-});
 
 init();
