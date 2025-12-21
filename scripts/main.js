@@ -27,8 +27,9 @@ const DEFAULT_LOOP_BARS = 4;
 let globalLoopBars = DEFAULT_LOOP_BARS;
 const DEFAULT_GLOBAL_FACTOR = 1;
 const DB_NAME = "edusampler-db";
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const DB_STORE = "samples";
+const DB_MIX_STORE = "mix-samples";
 let db = null;
 let globalTempoFactor = DEFAULT_GLOBAL_FACTOR;
 let savedMixes = [];
@@ -1224,6 +1225,11 @@ async function initDb() {
       if (!dbInstance.objectStoreNames.contains(DB_STORE)) {
         dbInstance.createObjectStore(DB_STORE, { keyPath: "id" });
       }
+      // Copias de audio por mezcla: evita que cambiar un slot rompa mezclas guardadas
+      if (!dbInstance.objectStoreNames.contains(DB_MIX_STORE)) {
+        const store = dbInstance.createObjectStore(DB_MIX_STORE, { keyPath: "id" });
+        store.createIndex("mixId", "mixId", { unique: false });
+      }
     };
     request.onsuccess = () => {
       db = request.result;
@@ -1231,6 +1237,51 @@ async function initDb() {
     };
     request.onerror = () => reject(request.error);
   });
+}
+
+function getRecord(storeName, key) {
+  if (!db) return Promise.resolve(null);
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readonly");
+    const store = tx.objectStore(storeName);
+    const req = store.get(key);
+    req.onsuccess = () => resolve(req.result || null);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+function putRecord(storeName, value) {
+  if (!db) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(storeName, "readwrite");
+    const store = tx.objectStore(storeName);
+    store.put(value);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function copySlotSampleToMix(mixId, trackId) {
+  if (!db || !mixId || !trackId) return;
+  const slotRec = await getRecord(DB_STORE, trackId);
+  if (!slotRec?.data) return;
+  const mixSampleId = `${mixId}:${trackId}`;
+  const mixRec = {
+    id: mixSampleId,
+    mixId,
+    trackId,
+    name: slotRec.name,
+    fileName: slotRec.fileName,
+    loopStart: slotRec.loopStart,
+    loopEnd: slotRec.loopEnd,
+    data: slotRec.data
+  };
+  await putRecord(DB_MIX_STORE, mixRec);
+}
+
+async function getMixSampleForTrack(mixId, trackId) {
+  if (!db || !mixId || !trackId) return null;
+  return getRecord(DB_MIX_STORE, `${mixId}:${trackId}`);
 }
 
 function saveStateMeta() {
@@ -1260,7 +1311,7 @@ function persistMixes() {
   localStorage.setItem("edusampler-mixes", JSON.stringify(savedMixes));
 }
 
-function saveCurrentMix(name) {
+async function saveCurrentMix(name) {
   const meta = sampleTracks.map((t) => ({
     id: t.id,
     displayName: t.displayName,
@@ -1278,6 +1329,19 @@ function saveCurrentMix(name) {
     globalTempoFactor: globalTempoFactor,
     tracks: meta
   };
+
+  // Snapshot del audio de cada slot en una copia ligada a esta mezcla.
+  // Esto permite que una mezcla antigua conserve sus samples aunque después cambies el slot.
+  try {
+    await Promise.all(
+      sampleTracks
+        .filter((tr) => tr.fileName)
+        .map((tr) => copySlotSampleToMix(mix.id, tr.id))
+    );
+  } catch (err) {
+    console.warn("No se pudieron copiar samples a la mezcla", err);
+  }
+
   savedMixes.unshift(mix);
   savedMixes = savedMixes.slice(0, 10); // mantener las 10 últimas
   persistMixes();
@@ -1293,6 +1357,18 @@ async function loadMixById(id) {
   ui.tempo.value = Math.round(globalTempoFactor * 100);
   ui.tempoValue.textContent = `${Math.round(globalTempoFactor * 100)}%`;
 
+  // Cargamos todos los registros de samples de una sola vez si hace falta fallback
+  let slotRecords = null;
+  const ensureSlotRecords = async () => {
+    if (slotRecords) return slotRecords;
+    try {
+      slotRecords = await readAllSamples();
+    } catch (err) {
+      slotRecords = [];
+    }
+    return slotRecords;
+  };
+
   for (const m of mix.tracks) {
     let track = sampleTracks.find((t) => t.id === m.id);
     if (!track) {
@@ -1307,10 +1383,21 @@ async function loadMixById(id) {
     track.loopEnd = m.loopEnd ?? track.loopEnd;
     track.enabled = m.enabled ?? track.enabled;
     track.tempoFactor = Number.isFinite(m.tempoFactor) ? m.tempoFactor : track.tempoFactor;
+
     // recuperar audio si existe en DB
     if (!track.sampleBuffer) {
-      const recs = await readAllSamples();
-      const rec = recs.find((r) => r.id === track.id);
+      let rec = null;
+      // 1) Preferimos la copia específica de la mezcla (si existe)
+      try {
+        rec = await getMixSampleForTrack(mix.id, track.id);
+      } catch (err) {
+        rec = null;
+      }
+      // 2) Fallback para mezclas antiguas: slot actual en DB_STORE
+      if (!rec?.data) {
+        const recs = await ensureSlotRecords();
+        rec = recs.find((r) => r.id === track.id) || null;
+      }
       if (rec?.data) {
         const audioBuffer = await decodeArrayBuffer(rec.data);
         track.sampleBuffer = audioBuffer;
