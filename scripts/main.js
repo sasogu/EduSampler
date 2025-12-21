@@ -18,6 +18,12 @@ const ui = {
   exportMix: document.getElementById("exportMix"),
   importMix: document.getElementById("importMix"),
   importMixFile: document.getElementById("importMixFile"),
+  arrangerPanel: document.getElementById("arrangerPanel"),
+  arrangerToggle: document.getElementById("arrangerToggle"),
+  arrangerEnable: document.getElementById("arrangerEnable"),
+  arrangerAddBar: document.getElementById("arrangerAddBar"),
+  arrangerBody: document.getElementById("arrangerBody"),
+  arrangerGrid: document.getElementById("arrangerGrid"),
   recordMix: document.getElementById("recordMix"),
   recordStatus: document.getElementById("recordStatus"),
   collapseCards: document.getElementById("collapseCards")
@@ -29,6 +35,8 @@ const DEFAULT_TEMPO = 96;
 const DEFAULT_LOOP_BARS = 4;
 let globalLoopBars = DEFAULT_LOOP_BARS;
 const DEFAULT_GLOBAL_FACTOR = 1;
+const DEFAULT_ARRANGER_COLS = 16;
+const MAX_ARRANGER_COLS = 64;
 const DB_NAME = "edusampler-db";
 const DB_VERSION = 2;
 const DB_STORE = "samples";
@@ -40,6 +48,16 @@ let sampleTracks = [];
 let cardsCollapsed = true;
 let currentLang = "es";
 const trackRecorders = {};
+
+const arranger = {
+  enabled: false,
+  cols: DEFAULT_ARRANGER_COLS,
+  // cells[trackId] = boolean[] length cols
+  cells: {},
+  pos: 0,
+  // estado anterior por pista para detectar transiciones OFF->ON
+  lastActive: {}
+};
 const KEY_BINDINGS = {
   ArrowUp: 1,
   ArrowDown: 2,
@@ -181,6 +199,12 @@ const translations = {
     exportGenerating: "Generando exportación...",
     importInvalid: "Archivo de mezcla no válido",
     importOk: "Mezcla importada",
+    arrangerTitle: "Modo grid",
+    arrangerToggle: "Mostrar",
+    arrangerHide: "Ocultar",
+    arrangerEnable: "Activar",
+    arrangerDisable: "Desactivar",
+    arrangerAddBar: "+ Compás",
     btnActivate: "Activar",
     btnSolo: "Solo",
     tagEmpty: "slot libre",
@@ -251,6 +275,12 @@ const translations = {
     exportGenerating: "Generant exportació...",
     importInvalid: "Fitxer de mescla no vàlid",
     importOk: "Mescla importada",
+    arrangerTitle: "Mode grid",
+    arrangerToggle: "Mostra",
+    arrangerHide: "Amaga",
+    arrangerEnable: "Activa",
+    arrangerDisable: "Desactiva",
+    arrangerAddBar: "+ Compàs",
     btnActivate: "Activa",
     btnSolo: "Solo",
     tagEmpty: "slot lliure",
@@ -321,6 +351,12 @@ const translations = {
     exportGenerating: "Generating export...",
     importInvalid: "Invalid mix file",
     importOk: "Mix imported",
+    arrangerTitle: "Grid mode",
+    arrangerToggle: "Show",
+    arrangerHide: "Hide",
+    arrangerEnable: "Enable",
+    arrangerDisable: "Disable",
+    arrangerAddBar: "+ Bar",
     btnActivate: "Activate",
     btnSolo: "Solo",
     tagEmpty: "empty slot",
@@ -368,6 +404,10 @@ class EduSamplerEngine {
     this.recorder = null;
     this.recording = false;
     this.recordedChunks = [];
+
+    // Hook opcional: se invoca al finalizar cada compás
+    this.onBar = null;
+    this.totalBars = 0;
   }
 
   async ensureContext() {
@@ -561,6 +601,15 @@ class EduSamplerEngine {
     if (stepIndex === 15) {
       this.nextBarTime = (this.nextBarTime || now) + barLength;
       this.barInLoop = (this.barInLoop + 1) % this.loopBars;
+
+      this.totalBars += 1;
+      if (typeof this.onBar === "function") {
+        try {
+          this.onBar({ totalBars: this.totalBars, barInLoop: this.barInLoop });
+        } catch (err) {
+          // ignore
+        }
+      }
     }
     this.step = (this.step + 1) % 16;
   }
@@ -769,6 +818,39 @@ class EduSamplerEngine {
       track.activeSource = null;
     };
     src.start(time, loopStart);
+  }
+
+  playSampleOneShot(track, buffer, time, gain) {
+    if (!buffer) return;
+    const naturalDuration = buffer.duration || 0;
+    const loopStart = Math.max(0, Math.min(track.loopStart || 0, naturalDuration));
+    const loopEndRaw = track.loopEnd ?? naturalDuration;
+    const loopEnd = Math.min(Math.max(loopEndRaw, loopStart + 0.01), naturalDuration);
+    const playDuration = Math.max(0.01, loopEnd - loopStart);
+
+    const baseRate = 1;
+    const playbackRate = baseRate * (track.tempoFactor || 1) * (this.globalTempoFactor || 1);
+
+    // Si hubiera una fuente previa viva, la detenemos
+    resetTrackPlayback(track);
+
+    const src = this.ctx.createBufferSource();
+    src.buffer = buffer;
+    src.playbackRate.value = playbackRate || 1;
+    src.loop = false;
+    src.connect(gain);
+
+    track.isSamplePlaying = true;
+    track.activeSource = src;
+    track.samplePlayingUntil = (time || this.ctx.currentTime) + playDuration / (src.playbackRate.value || 1);
+    src.onended = () => {
+      track.samplePlayingUntil = 0;
+      track.isSamplePlaying = false;
+      track.activeSource = null;
+    };
+
+    // Reproduce desde loopStart durante playDuration (si loopEnd está definido)
+    src.start(time, loopStart, playDuration);
   }
 
   getBarLengthSeconds() {
@@ -1233,6 +1315,7 @@ function applyTranslations() {
   renderTracks();
   drawAllWaveforms();
   renderSlotSummary();
+  renderArrangerGrid();
   const langSelect = document.getElementById("langSelect");
   if (langSelect) langSelect.value = currentLang;
 }
@@ -1317,6 +1400,171 @@ function isPlainObject(v) {
   return Boolean(v) && typeof v === "object" && !Array.isArray(v);
 }
 
+function ensureArrangerRows() {
+  // Mantener celdas para cada track existente
+  sampleTracks.forEach((tr) => {
+    if (!arranger.cells[tr.id]) {
+      arranger.cells[tr.id] = Array.from({ length: arranger.cols }, () => false);
+      return;
+    }
+    // ajustar longitud si han cambiado columnas
+    const row = arranger.cells[tr.id];
+    if (row.length < arranger.cols) {
+      arranger.cells[tr.id] = row.concat(Array.from({ length: arranger.cols - row.length }, () => false));
+    } else if (row.length > arranger.cols) {
+      arranger.cells[tr.id] = row.slice(0, arranger.cols);
+    }
+  });
+}
+
+function normalizeArrangerState() {
+  arranger.cols = Math.max(1, Math.min(MAX_ARRANGER_COLS, Math.round(arranger.cols || DEFAULT_ARRANGER_COLS)));
+  arranger.pos = Math.max(0, Math.min(arranger.cols - 1, Math.round(arranger.pos || 0)));
+  arranger.enabled = Boolean(arranger.enabled);
+  arranger.cells = isPlainObject(arranger.cells) ? arranger.cells : {};
+  arranger.lastActive = isPlainObject(arranger.lastActive) ? arranger.lastActive : {};
+  ensureArrangerRows();
+}
+
+function setTrackEnabledUi(trackId, enabled) {
+  const card = ui.trackGrid?.querySelector(`.card[data-id="${trackId}"]`);
+  if (!card) return;
+  const btn = card.querySelector('[data-action="toggle"]');
+  btn?.classList.toggle("active", Boolean(enabled));
+}
+
+function applyArrangerColumn(col) {
+  normalizeArrangerState();
+  const safeCol = Math.max(0, Math.min(arranger.cols - 1, col));
+  arranger.pos = safeCol;
+
+  // Si el modo no está activo, no forzamos nada.
+  if (!arranger.enabled) {
+    updateArrangerPlayheadUi();
+    return;
+  }
+
+  // En modo grid: disparo one-shot al entrar en una celda activa.
+  // Importante: no cortamos el sample al salir de la celda; dejamos que termine.
+  const canSchedule = Boolean(engine?.ctx) && Boolean(engine?.isRunning);
+  const when = canSchedule ? (engine.nextBarTime || engine.ctx.currentTime) + (engine.lookahead || 0) : null;
+
+  sampleTracks.forEach((tr) => {
+    const row = arranger.cells[tr.id] || [];
+    const activeNow = Boolean(row[safeCol]);
+    const wasActive = Boolean(arranger.lastActive?.[tr.id]);
+
+    const playingUntil = Number.isFinite(tr.samplePlayingUntil) ? tr.samplePlayingUntil : 0;
+    const willStillBePlayingAtBarStart = Boolean(tr.isSamplePlaying) && playingUntil > (when ?? 0);
+
+    // Disparo one-shot:
+    // - siempre que entremos OFF->ON
+    // - o si sigue ON pero el sample ya habrá terminado antes del inicio del compás
+    //   (para evitar silencios en columnas consecutivas ON)
+    if (activeNow && canSchedule && when != null && (!wasActive || !willStillBePlayingAtBarStart)) {
+      // Evitar solapamientos: si aún sonaría en el inicio del compás, no disparamos.
+      if (willStillBePlayingAtBarStart) {
+        arranger.lastActive[tr.id] = activeNow;
+        return;
+      }
+
+      const gain = tr.gainNode || engine.createTrackGain(tr.gain);
+      tr.gainNode = gain;
+      if (tr.instrument === "sample" && tr.sampleBuffer) {
+        engine.playSampleOneShot(tr, tr.sampleBuffer, when, gain);
+      }
+    }
+
+    arranger.lastActive[tr.id] = activeNow;
+  });
+
+  updateArrangerPlayheadUi();
+}
+
+function renderArrangerGrid() {
+  if (!ui.arrangerGrid) return;
+  normalizeArrangerState();
+
+  const table = document.createElement("table");
+  table.className = "arranger-table";
+
+  const thead = document.createElement("thead");
+  const headRow = document.createElement("tr");
+  const thLabel = document.createElement("th");
+  thLabel.textContent = "";
+  headRow.appendChild(thLabel);
+  for (let c = 0; c < arranger.cols; c++) {
+    const th = document.createElement("th");
+    th.className = "arr-colhead";
+    th.dataset.arrColHead = String(c);
+    th.textContent = String(c + 1);
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement("tbody");
+  sampleTracks.forEach((tr) => {
+    const rowArr = arranger.cells[tr.id] || Array.from({ length: arranger.cols }, () => false);
+    const trEl = document.createElement("tr");
+
+    const label = document.createElement("th");
+    label.className = "arranger-rowlabel";
+    label.textContent = tr.displayName || tr.name || tr.id;
+    trEl.appendChild(label);
+
+    for (let c = 0; c < arranger.cols; c++) {
+      const td = document.createElement("td");
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `arr-cell${rowArr[c] ? " on" : ""}`;
+      btn.dataset.arrTrack = tr.id;
+      btn.dataset.arrCol = String(c);
+      btn.setAttribute("aria-label", `${label.textContent} · ${c + 1}`);
+      td.appendChild(btn);
+      trEl.appendChild(td);
+    }
+    tbody.appendChild(trEl);
+  });
+  table.appendChild(tbody);
+
+  ui.arrangerGrid.innerHTML = "";
+  ui.arrangerGrid.appendChild(table);
+
+  // botones de estado
+  if (ui.arrangerToggle && ui.arrangerBody) {
+    ui.arrangerToggle.textContent = ui.arrangerBody.hasAttribute("hidden") ? t("arrangerToggle") : t("arrangerHide");
+  }
+  if (ui.arrangerEnable) {
+    ui.arrangerEnable.textContent = arranger.enabled ? t("arrangerDisable") : t("arrangerEnable");
+  }
+
+  updateArrangerPlayheadUi();
+}
+
+function updateArrangerPlayheadUi() {
+  if (!ui.arrangerGrid) return;
+  const buttons = ui.arrangerGrid.querySelectorAll(".arr-cell");
+  if (!buttons.length) return;
+
+  const show = Boolean(arranger.enabled) && Boolean(engine?.isRunning);
+
+  const heads = ui.arrangerGrid.querySelectorAll("th.arr-colhead[data-arr-col-head]");
+  heads.forEach((th) => {
+    const col = Number(th.dataset.arrColHead);
+    th.classList.toggle("playing", show && col === arranger.pos);
+  });
+
+  buttons.forEach((btn) => {
+    const trackId = btn.dataset.arrTrack;
+    const col = Number(btn.dataset.arrCol);
+    const row = arranger.cells?.[trackId] || [];
+    const isActiveCell = Boolean(row[col]);
+    const isPlayingNow = show && col === arranger.pos && isActiveCell;
+    btn.classList.toggle("playing", isPlayingNow);
+  });
+}
+
 function isBundledLibraryFileName(fileName) {
   if (!fileName) return false;
   // Los samples integrados se cargan desde /samplers/** y guardan como fileName el basename
@@ -1346,6 +1594,11 @@ async function exportMixPortable() {
       name: `Export ${new Date().toLocaleString()}`,
       date: Date.now(),
       globalTempoFactor,
+      arranger: {
+        enabled: Boolean(arranger.enabled),
+        cols: arranger.cols,
+        cells: arranger.cells
+      },
       tracks: sampleTracks.map((tr) => ({
         id: tr.id,
         displayName: tr.displayName,
@@ -1405,7 +1658,8 @@ async function exportMixPortable() {
       name: mix.name,
       date: mix.date,
       globalTempoFactor: mix.globalTempoFactor,
-      tracks: mix.tracks
+      tracks: mix.tracks,
+      arranger: mix.arranger
     },
     samples
   };
@@ -1437,11 +1691,19 @@ async function importMixPortableFromFile(file) {
   }
 
   const newMixId = `${Date.now()}`;
+  const importedArranger = isPlainObject(data.mix.arranger) ? data.mix.arranger : null;
   const importedMix = {
     id: newMixId,
     name: String(data.mix.name || t("saveMix")).slice(0, 60),
     date: Date.now(),
     globalTempoFactor: Number(data.mix.globalTempoFactor) || DEFAULT_GLOBAL_FACTOR,
+    arranger: importedArranger
+      ? {
+          enabled: Boolean(importedArranger.enabled),
+          cols: Number(importedArranger.cols) || DEFAULT_ARRANGER_COLS,
+          cells: isPlainObject(importedArranger.cells) ? importedArranger.cells : {}
+        }
+      : undefined,
     tracks: data.mix.tracks
       .filter((tr) => tr && tr.id)
       .map((tr) => ({
@@ -1552,7 +1814,12 @@ async function saveCurrentMix(name) {
     name: name || t("saveMix"),
     date: Date.now(),
     globalTempoFactor: globalTempoFactor,
-    tracks: meta
+    tracks: meta,
+    arranger: {
+      enabled: Boolean(arranger.enabled),
+      cols: arranger.cols,
+      cells: arranger.cells
+    }
   };
 
   // Snapshot del audio de cada slot en una copia ligada a esta mezcla.
@@ -1577,6 +1844,15 @@ async function saveCurrentMix(name) {
 async function loadMixById(id) {
   const mix = savedMixes.find((m) => m.id === id);
   if (!mix) return;
+
+  if (mix.arranger) {
+    arranger.enabled = Boolean(mix.arranger.enabled);
+    arranger.cols = Number(mix.arranger.cols) || DEFAULT_ARRANGER_COLS;
+    arranger.cells = isPlainObject(mix.arranger.cells) ? mix.arranger.cells : {};
+    arranger.pos = 0;
+    normalizeArrangerState();
+    renderArrangerGrid();
+  }
   globalTempoFactor = mix.globalTempoFactor || DEFAULT_GLOBAL_FACTOR;
   localStorage.setItem("edusampler-global-tempo", String(globalTempoFactor));
   ui.tempo.value = Math.round(globalTempoFactor * 100);
@@ -1644,6 +1920,14 @@ function startNewMix() {
   globalTempoFactor = DEFAULT_GLOBAL_FACTOR;
   ui.tempo.value = Math.round(globalTempoFactor * 100);
   ui.tempoValue.textContent = `${Math.round(globalTempoFactor * 100)}%`;
+
+  arranger.enabled = false;
+  arranger.cols = DEFAULT_ARRANGER_COLS;
+  arranger.cells = {};
+  arranger.pos = 0;
+  normalizeArrangerState();
+  renderArrangerGrid();
+
   sampleTracks = [];
   ensureBaseSlots();
   if (ui.mixSelect) ui.mixSelect.value = "";
@@ -2015,10 +2299,26 @@ async function togglePlayPause() {
   await startAudio();
   engine.muteAll(false);
   if (!engine.isRunning) {
+    // Inicializar modo grid para esta reproducción.
+    engine.totalBars = 0;
+    engine.onBar = () => {
+      if (!arranger.enabled) return;
+      const next = (arranger.pos + 1) % Math.max(1, arranger.cols || DEFAULT_ARRANGER_COLS);
+      applyArrangerColumn(next);
+    };
     engine.play();
+
+    // Reset de transiciones y aplicar columna 0 ya con nextBarTime disponible.
+    if (arranger.enabled) {
+      arranger.lastActive = {};
+      applyArrangerColumn(0);
+    }
+    updateArrangerPlayheadUi();
     ui.playToggle.textContent = t("pause");
   } else {
     engine.stop();
+    engine.onBar = null;
+    updateArrangerPlayheadUi();
     ui.playToggle.textContent = t("play");
   }
 }
@@ -2031,10 +2331,12 @@ function addCustomTrack() {
   const idx = sampleTracks.length + 1;
   const track = createEmptyTrack(idx);
   sampleTracks.push(track);
+  ensureArrangerRows();
   renderTracks();
   if (engine.ctx) {
     engine.setTracks(sampleTracks);
   }
+  renderArrangerGrid();
   renderSlotSummary();
   saveStateMeta();
 }
@@ -2160,7 +2462,16 @@ function renderMixSelect() {
 async function setupServiceWorker() {
   if ("serviceWorker" in navigator) {
     try {
-      const reg = await navigator.serviceWorker.register("./service-worker.js");
+      const reg = await navigator.serviceWorker.register("./service-worker.js", { updateViaCache: "none" });
+
+      // En desarrollo, forzamos comprobación de update en cada carga.
+      // (Hard refresh no bypass-ea el Service Worker.)
+      try {
+        await reg.update();
+      } catch (err) {
+        // ignore
+      }
+
       // si hay un SW esperando y ya hay uno activo, fuerza que tome el control
       if (navigator.serviceWorker.controller && reg.waiting) {
         reg.waiting.postMessage({ type: "SKIP_WAITING" });
@@ -2372,6 +2683,59 @@ ui.importMixFile?.addEventListener("change", async (ev) => {
   // permitir re-importar el mismo archivo sin tener que cambiar nombre
   ev.target.value = "";
   await importMixPortableFromFile(file);
+});
+
+ui.arrangerToggle?.addEventListener("click", () => {
+  if (!ui.arrangerBody) return;
+  if (ui.arrangerBody.hasAttribute("hidden")) {
+    ui.arrangerBody.removeAttribute("hidden");
+  } else {
+    ui.arrangerBody.setAttribute("hidden", "true");
+  }
+  renderArrangerGrid();
+});
+
+ui.arrangerEnable?.addEventListener("click", () => {
+  arranger.enabled = !arranger.enabled;
+  if (arranger.enabled) {
+    arranger.pos = 0;
+    arranger.lastActive = {};
+
+    // Evitar que se queden sonando samples por el estado manual previo.
+    // En modo grid, solo debe sonar lo que marque el propio grid.
+    sampleTracks.forEach((tr) => {
+      tr.enabled = false;
+      if (engine.ctx) {
+        engine.setTrackEnabled(tr.id, false);
+      }
+      setTrackEnabledUi(tr.id, false);
+    });
+
+    applyArrangerColumn(0);
+  }
+  renderArrangerGrid();
+});
+
+ui.arrangerAddBar?.addEventListener("click", () => {
+  arranger.cols = Math.min(MAX_ARRANGER_COLS, Math.max(1, (arranger.cols || DEFAULT_ARRANGER_COLS) + 1));
+  normalizeArrangerState();
+  renderArrangerGrid();
+});
+
+ui.arrangerGrid?.addEventListener("click", (ev) => {
+  const btn = ev.target?.closest?.(".arr-cell");
+  if (!btn) return;
+  const trackId = btn.dataset.arrTrack;
+  const col = Number(btn.dataset.arrCol);
+  if (!trackId || !Number.isFinite(col)) return;
+  normalizeArrangerState();
+  const row = arranger.cells[trackId] || Array.from({ length: arranger.cols }, () => false);
+  row[col] = !Boolean(row[col]);
+  arranger.cells[trackId] = row;
+  renderArrangerGrid();
+  if (arranger.enabled && col === arranger.pos) {
+    applyArrangerColumn(arranger.pos);
+  }
 });
 
 function toggleHelp(show) {
